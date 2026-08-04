@@ -16,7 +16,6 @@ const SECTIONS: { heading?: string; items: NavItem[] }[] = [
       { href: "/tracker", label: "Monthly Tracker", icon: "calendar" },
       { href: "/services", label: "Services", icon: "repeat" },
       { href: "/documents", label: "Documents", icon: "folder" },
-      { href: "/alerts", label: "Alerts & Email", icon: "bell" },
     ],
   },
   {

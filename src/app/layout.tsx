@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ROQIT Billing",
-  description: "Internal payment & asset tracker — vendors, monthly payments, IoT device procurement, documents & alerts.",
+  description: "Internal payment & asset tracker — vendors, monthly payments, IoT device procurement, and documents.",
 };
 
 // Runs before paint to set the theme class from the saved choice or the OS

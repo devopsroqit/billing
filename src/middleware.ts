@@ -40,10 +40,10 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Protect everything except Next internals, the alert cron, and static asset
-  // files (images/icons in public/) — otherwise the auth redirect would block
-  // the logo and other public assets.
+  // Protect everything except Next internals and static asset files
+  // (images/icons in public/) — otherwise the auth redirect would block the
+  // logo and other public assets.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/cron|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp)).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp)).*)",
   ],
 };
