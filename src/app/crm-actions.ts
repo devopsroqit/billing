@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSessionUser, logout, assertCanEdit } from "@/lib/auth";
-import { ACCOUNT_TYPES } from "@/lib/constants";
+import { ACCOUNT_TYPES, ACTIVITY_TYPES } from "@/lib/constants";
 
 // CRM server actions. Kept separate from the large src/app/actions.ts. Same
 // conventions: zod-validate FormData, guard with requireEditor(), write via
@@ -155,6 +155,126 @@ export async function saveContact(formData: FormData) {
   revalidatePath("/crm/contacts");
   if (data.accountId) revalidatePath(`/crm/accounts/${data.accountId}`);
   redirect(`/crm/contacts/${created.id}`);
+}
+
+// Inline single-field edit from the record page. Whitelisted fields only.
+const EDITABLE_ACCOUNT_FIELDS = [
+  "name", "type", "industry", "website", "email", "phone", "address", "gstin", "notes", "ownerId",
+] as const;
+
+export async function updateAccountField(id: string, field: string, value: string) {
+  const user = await requireEditor();
+  if (!(EDITABLE_ACCOUNT_FIELDS as readonly string[]).includes(field)) {
+    return { error: "That field can't be edited." };
+  }
+  const trimmed = value.trim();
+  if (field === "name") {
+    if (!trimmed) return { error: "Name can't be empty." };
+  }
+  if (field === "type" && !(ACCOUNT_TYPES as readonly string[]).includes(trimmed)) {
+    return { error: "Invalid type." };
+  }
+  // Required text fields keep their value; everything else empties to null.
+  const stored: string | null = field === "name" || field === "type" ? trimmed : trimmed === "" ? null : trimmed;
+  const data: Record<string, unknown> = { [field]: stored };
+  await prisma.account.update({ where: { id }, data });
+  await audit(user.id, "UPDATE", "Account", id, field);
+  revalidatePath(`/crm/accounts/${id}`);
+  revalidatePath("/crm/accounts");
+  return { ok: true };
+}
+
+const EDITABLE_CONTACT_FIELDS = [
+  "firstName", "lastName", "title", "email", "phone", "accountId", "ownerId", "notes", "isPrimary",
+] as const;
+
+export async function updateContactField(id: string, field: string, value: string) {
+  const user = await requireEditor();
+  if (!(EDITABLE_CONTACT_FIELDS as readonly string[]).includes(field)) {
+    return { error: "That field can't be edited." };
+  }
+  const trimmed = value.trim();
+  if (field === "firstName" && !trimmed) return { error: "First name can't be empty." };
+
+  let stored: string | boolean | null;
+  if (field === "isPrimary") stored = value === "true";
+  else if (field === "firstName") stored = trimmed;
+  else stored = trimmed === "" ? null : trimmed;
+
+  const data: Record<string, unknown> = { [field]: stored };
+  const before = await prisma.contact.findUnique({ where: { id }, select: { accountId: true } });
+  await prisma.contact.update({ where: { id }, data });
+  await audit(user.id, "UPDATE", "Contact", id, field);
+  revalidatePath(`/crm/contacts/${id}`);
+  revalidatePath("/crm/contacts");
+  if (before?.accountId) revalidatePath(`/crm/accounts/${before.accountId}`);
+  if (field === "accountId" && stored) revalidatePath(`/crm/accounts/${stored as string}`);
+  return { ok: true };
+}
+
+// ===========================================================================
+// Activities (notes / tasks / logged interactions) — the record timeline
+// ===========================================================================
+export async function addActivity(input: {
+  accountId?: string;
+  contactId?: string;
+  dealId?: string;
+  type: string;
+  subject: string;
+  body?: string;
+  dueDate?: string;
+}) {
+  const user = await requireEditor();
+  const type = (ACTIVITY_TYPES as readonly string[]).includes(input.type) ? input.type : "NOTE";
+  const subject = (input.subject ?? "").trim();
+  if (!subject) return { error: "Add some text first." };
+  const isTask = type === "TASK";
+  await prisma.activity.create({
+    data: {
+      type,
+      subject: subject.slice(0, 300),
+      body: orNull(input.body),
+      status: isTask ? "OPEN" : "DONE",
+      dueDate: isTask && input.dueDate ? new Date(input.dueDate) : null,
+      occurredAt: new Date(),
+      accountId: orNull(input.accountId),
+      contactId: orNull(input.contactId),
+      dealId: orNull(input.dealId),
+      ownerId: user.id,
+      createdById: user.id,
+    },
+  });
+  await audit(user.id, "CREATE", "Activity", undefined, `${type}: ${subject.slice(0, 60)}`);
+  if (input.accountId) revalidatePath(`/crm/accounts/${input.accountId}`);
+  if (input.contactId) revalidatePath(`/crm/contacts/${input.contactId}`);
+  if (input.dealId) revalidatePath(`/crm/deals/${input.dealId}`);
+  return { ok: true };
+}
+
+export async function toggleActivityDone(id: string) {
+  const user = await requireEditor();
+  const a = await prisma.activity.findUnique({ where: { id } });
+  if (!a) return;
+  const done = a.status !== "DONE";
+  await prisma.activity.update({
+    where: { id },
+    data: { status: done ? "DONE" : "OPEN", completedAt: done ? new Date() : null },
+  });
+  await audit(user.id, "UPDATE", "Activity", id, done ? "completed" : "reopened");
+  if (a.accountId) revalidatePath(`/crm/accounts/${a.accountId}`);
+  if (a.contactId) revalidatePath(`/crm/contacts/${a.contactId}`);
+  if (a.dealId) revalidatePath(`/crm/deals/${a.dealId}`);
+}
+
+export async function deleteActivity(id: string) {
+  const user = await requireEditor();
+  const a = await prisma.activity.findUnique({ where: { id } });
+  if (!a) return;
+  await prisma.activity.delete({ where: { id } });
+  await audit(user.id, "DELETE", "Activity", id, a.subject.slice(0, 60));
+  if (a.accountId) revalidatePath(`/crm/accounts/${a.accountId}`);
+  if (a.contactId) revalidatePath(`/crm/contacts/${a.contactId}`);
+  if (a.dealId) revalidatePath(`/crm/deals/${a.dealId}`);
 }
 
 export async function deleteContact(id: string) {
