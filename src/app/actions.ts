@@ -378,14 +378,22 @@ export async function toggleUserActive(id: string) {
 // --------------------------------------------------------------------------
 // Alerts
 // --------------------------------------------------------------------------
-export async function runAlertsAction() {
+export async function runAlertsAction(recipientUserIds: string[] = []) {
   const user = await requireUser();
   if (!canEdit(user.role)) throw new Error("Only editors/admins can run alerts.");
-  const r = await runAlerts();
-  await audit(user.id, "RUN_ALERTS", "System", undefined, JSON.stringify(r));
+  const ids = Array.isArray(recipientUserIds) ? recipientUserIds.filter(Boolean) : [];
+  const r = await runAlerts({ recipientUserIds: ids });
+  await audit(
+    user.id,
+    "RUN_ALERTS",
+    "System",
+    undefined,
+    JSON.stringify({ ...r, recipientUserIds: ids }),
+  );
   revalidatePath("/alerts");
+  const scope = ids.length > 0 ? ` to ${ids.length} selected recipient(s)` : "";
   return {
-    message: `Marked ${r.markedOverdue} overdue · queued ${r.dueSoonQueued} due-soon + ${r.overdueQueued} overdue reminders.`,
+    message: `Marked ${r.markedOverdue} overdue · queued ${r.dueSoonQueued} due-soon + ${r.overdueQueued} overdue reminders${scope}.`,
   };
 }
 
