@@ -1,0 +1,287 @@
+// roqit Billing — internal recurring-payment tracker
+//
+// This replaces the old customer-billing model. The company (ROQIT) uses this
+// to track the vendors/services IT PAYS every month (GitHub, AWS, Flespi,
+// Twilio, …) — exactly like the "ROQIT_Recurring_Payment_Tracker" spreadsheet,
+// but multi-user, with roles, and a searchable document library.
+//
+// NOTE: enum-like fields are stored as plain strings (allowed values live in
+// src/lib/constants.ts). This keeps the model portable and easy to evolve; it
+// can be tightened to native Postgres enums later if desired.
+//
+// Money is stored as integer minor units (paise for INR, cents for USD/EUR) to
+// avoid floating-point rounding. See src/lib/money.ts.
+//
+// Database: PostgreSQL. Set DATABASE_URL to your managed Postgres connection
+// string (Neon/Supabase). For local dev you can point it at the same database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Office members who log in. Roles: ADMIN | EDITOR | VIEWER
+// ---------------------------------------------------------------------------
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("VIEWER") // ADMIN | EDITOR | VIEWER
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  createdEntries    PaymentEntry[] @relation("EntryCreatedBy")
+  uploadedDocuments Document[]
+  auditLogs         AuditLog[]
+}
+
+// ---------------------------------------------------------------------------
+// A recurring vendor/service the company pays. This is the reusable template
+// from which each month's rows are generated.
+// ---------------------------------------------------------------------------
+model Service {
+  id               String   @id @default(cuid())
+  name             String // "GitHub", "AWS", "Flespi", …
+  vendorType       String   @default("SUBSCRIPTION") // SUBSCRIPTION | SERVICE
+  billingFrequency String   @default("MONTHLY") // MONTHLY | ANNUAL | MONTHLY_USAGE | PAY_AS_YOU_GO | ONE_TIME
+  currency         String   @default("INR") // primary currency the vendor charges in: INR | USD | EUR
+  dueDayOfMonth    Int? // e.g. 20 → due on the 20th; used to auto-fill due dates
+  // Optional default amounts (minor units) used to pre-fill a new month's entry.
+  defaultInrPaise  Int      @default(0)
+  defaultUsdCents  Int      @default(0)
+  defaultEurCents  Int      @default(0)
+  vendorUrl        String?
+  notes            String?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  entries PaymentEntry[]
+}
+
+// ---------------------------------------------------------------------------
+// One row per service per month — the heart of the tracker. Mirrors a row of
+// the spreadsheet. Values are snapshotted from the Service at generation time
+// so later edits to the Service don't rewrite history.
+// ---------------------------------------------------------------------------
+model PaymentEntry {
+  id               String    @id @default(cuid())
+  serviceId        String?
+  // Snapshot of the service at the time the row was created.
+  serviceName      String
+  vendorType       String    @default("SUBSCRIPTION")
+  billingFrequency String    @default("MONTHLY")
+  // Accounting period this row belongs to.
+  periodYear       Int
+  periodMonth      Int // 1-12
+  dueDate          DateTime?
+  paymentMadeOn    DateTime?
+  status           String    @default("PENDING") // PENDING | PAID | OVERDUE
+  // Amounts across the three currencies (minor units). A row may use one or all.
+  amountInrPaise        Int  @default(0)
+  amountUsdCents        Int  @default(0)
+  amountEurCents        Int  @default(0)
+  // What was actually paid this month, in INR (the spreadsheet's key column).
+  thisMonthPaidInrPaise Int  @default(0)
+  notes            String?
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  service   Service?   @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  createdBy User?      @relation("EntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  documents Document[]
+
+  // At most one row per service per period.
+  @@unique([serviceId, periodYear, periodMonth])
+  @@index([periodYear, periodMonth])
+}
+
+// ---------------------------------------------------------------------------
+// An invoice/receipt attached to a payment row. Either an uploaded file
+// (stored on disk under ./uploads) OR an external link (e.g. Google Drive).
+// ---------------------------------------------------------------------------
+model Document {
+  id           String   @id @default(cuid())
+  // A document belongs to exactly one owner: a payment entry, a purchase, or a
+  // device. All three FKs are optional; whichever is set identifies the owner.
+  entryId      String?
+  purchaseId   String?
+  deviceId     String?
+  kind         String   @default("FILE") // FILE | LINK
+  title        String
+  originalName String? // for FILE: the uploaded file name
+  storedName   String? // legacy: former on-disk name (files now live in DocumentBlob)
+  mimeType     String?
+  sizeBytes    Int      @default(0)
+  externalUrl  String? // for LINK
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  entry      PaymentEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  purchase   Purchase?     @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  device     Device?       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  uploadedBy User?         @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  blob       DocumentBlob?
+}
+
+// The raw bytes of an uploaded file, stored in Postgres (bytea). Kept in a
+// separate table so listing documents never pulls the file contents into
+// memory — only the download route reads it. Storing files in the database
+// means uploads persist on serverless hosts (Vercel) and are shared by everyone.
+model DocumentBlob {
+  id         String   @id @default(cuid())
+  documentId String   @unique
+  data       Bytes
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Simulated email queue — the alert engine writes here instead of sending.
+// Swap src/lib/email.ts for a real provider to go live.
+// ---------------------------------------------------------------------------
+model EmailOutbox {
+  id           String    @id @default(cuid())
+  toEmail      String
+  toName       String?
+  subject      String
+  body         String
+  type         String // DUE_SOON | OVERDUE | GENERIC
+  status       String    @default("QUEUED") // QUEUED | SENT | FAILED
+  entryId      String?
+  scheduledFor DateTime  @default(now())
+  sentAt       DateTime?
+  error        String?
+  createdAt    DateTime  @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail of who did what.
+// ---------------------------------------------------------------------------
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+}
+
+// ===========================================================================
+// Assets & Procurement — tracking the IoT devices the company buys, who from,
+// at what cost, and where each unit is deployed.
+// ===========================================================================
+
+// A party the company procures devices from (OEM / distributor / other).
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String
+  type         String   @default("OEM") // OEM | DISTRIBUTOR | OTHER
+  contactName  String?
+  contactEmail String?
+  phone        String?
+  gstin        String?
+  address      String?
+  website      String?
+  notes        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  purchases Purchase[]
+  devices   Device[]
+}
+
+// A procurement record — one order/invoice from a supplier.
+model Purchase {
+  id           String   @id @default(cuid())
+  supplierId   String?
+  purchaseDate DateTime @default(now())
+  reference    String? // PO / invoice number
+  currency     String   @default("INR") // INR | USD | EUR
+  amountMinor  Int      @default(0) // total cost in minor units
+  quantity     Int      @default(1)
+  notes        String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  supplier  Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  devices   Device[]
+  documents Document[]
+
+  @@index([purchaseDate])
+}
+
+// A single physical device (asset), tracked individually by serial/IMEI.
+model Device {
+  id           String    @id @default(cuid())
+  purchaseId   String?
+  supplierId   String?
+  category     String    @default("Device") // free text: GPS Tracker, Gateway, Sensor…
+  make         String?
+  model        String?
+  serialNo     String?   @unique
+  imei         String?
+  assetTag     String?
+  costMinor    Int       @default(0)
+  currency     String    @default("INR")
+  purchaseDate DateTime?
+  status       String    @default("IN_STOCK") // IN_STOCK | DEPLOYED | FAULTY | IN_REPAIR | RETURNED | RETIRED
+  // Denormalized snapshot of the current deployment, for fast list rendering.
+  location     String?
+  assignedTo   String?
+  notes        String?
+  // Inventory-register template fields — shown 1:1 in the devices table.
+  deviceName      String?
+  modelNo         String?
+  serialImei      String?
+  qtyPurchased    Int      @default(1)
+  vendorName      String?
+  invoiceNo       String?
+  projectClient   String?
+  statusText      String? // free-text holding/custody status from the register (e.g. "ETO custody")
+  installedStatus String? // Yes / No
+  installedBy     String?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  purchase    Purchase?    @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  supplier    Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  deployments Deployment[]
+  documents   Document[]
+
+  @@index([status])
+  @@index([imei])
+}
+
+// A movement/assignment event in a device's history.
+model Deployment {
+  id          String    @id @default(cuid())
+  deviceId    String
+  action      String    @default("DEPLOYED") // DEPLOYED | RETURNED | TRANSFERRED | REPAIR
+  site        String?
+  customer    String?
+  assignedTo  String?
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  notes       String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+}

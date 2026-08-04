@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Semantic color tokens (space-separated RGB, consumed via rgb(var(--x)/a)). */
+:root {
+  color-scheme: light;
+  --bg: 248 250 252; /* slate-50 */
+  --surface: 255 255 255; /* white */
+  --surface-2: 241 245 249; /* slate-100 — table headers, hover, insets */
+  --border: 226 232 240; /* slate-200 */
+  --fg: 15 23 42; /* slate-900 */
+  --muted: 100 116 139; /* slate-500 */
+  --faint: 148 163 184; /* slate-400 */
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: 3 7 18; /* near-black slate */
+  --surface: 17 24 39; /* gray-900 */
+  --surface-2: 31 41 55; /* gray-800 */
+  --border: 42 52 68; /* subtle slate border */
+  --fg: 237 242 249; /* near slate-100 */
+  --muted: 148 163 184; /* slate-400 */
+  --faint: 100 116 139; /* slate-500 */
+}
+
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+  @apply antialiased;
+}
+
+@layer base {
+  /* Smooth, tasteful theme + interaction transitions (~200ms). */
+  body,
+  .card,
+  aside,
+  header,
+  thead,
+  tr,
+  a,
+  button,
+  input,
+  select,
+  textarea {
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.15s ease,
+      box-shadow 0.2s ease;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-700;
+  }
+  .btn-secondary {
+    @apply btn bg-surface text-fg ring-1 ring-inset ring-border hover:bg-surface-2;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .btn-success {
+    @apply btn bg-green-600 text-white hover:bg-green-700;
+  }
+  .card {
+    @apply rounded-xl border border-border bg-surface shadow-card;
+  }
+  .input {
+    @apply block w-full rounded-lg border-0 bg-surface px-3 py-2 text-sm text-fg ring-1 ring-inset ring-border placeholder:text-faint focus:ring-2 focus:ring-inset focus:ring-brand-600;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-fg;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ring-black/5 dark:ring-white/10;
+  }
+  .th {
+    @apply whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted;
+  }
+  .td {
+    @apply px-4 py-3 text-sm text-fg;
+  }
+}
+
+/* Collapsible desktop sidebar (icon rail). Width + transition live here so the
+   layout has no flash on load — an inline script sets .sidebar-collapsed on
+   <html> before paint. All rules are scoped to .app-sidebar so the mobile
+   drawer (which reuses the same nav markup) is never affected. */
+.app-sidebar {
+  width: 15rem;
+  transition: width 0.2s ease;
+}
+.sidebar-mini-logo {
+  display: none;
+}
+.sidebar-collapsed .app-sidebar {
+  width: 4.25rem;
+}
+.sidebar-collapsed .app-sidebar .sidebar-label {
+  display: none;
+}
+.sidebar-collapsed .app-sidebar .sidebar-full-logo {
+  display: none;
+}
+.sidebar-collapsed .app-sidebar .sidebar-mini-logo {
+  display: flex;
+}
+.sidebar-collapsed .app-sidebar .nav-link,
+.sidebar-collapsed .app-sidebar .sidebar-compact {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.sidebar-collapsed .app-sidebar .sidebar-header {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Slim, theme-aware scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--border)) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::selection {
+  background: rgb(var(--brand-selection, 37 99 235) / 0.2);
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
