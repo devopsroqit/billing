@@ -13,7 +13,6 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "alerts:run": "tsx scripts/run-alerts.ts",
     "setup": "prisma generate && prisma db push && tsx prisma/seed.ts"
   },
   "prisma": {

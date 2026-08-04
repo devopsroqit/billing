@@ -57,7 +57,6 @@ npm run dev        # http://localhost:3000 — now backed by the shared database
    |------|-------|
    | `DATABASE_URL` | your Neon connection string |
    | `AUTH_SECRET` | the same long random string |
-   | `ALERT_DUE_SOON_DAYS` | `5` (optional) |
 5. Click **Deploy**. In a minute you'll get a URL like
    `https://roqit-billing.vercel.app` — share that with the office.
 
@@ -87,13 +86,6 @@ Each payment row supports two ways to attach an invoice/receipt:
   `ROQIT - SharedFolder`. Nothing is stored in the app; only the URL.
 
 Use whichever suits each row.
-
-## Reminders (optional)
-
-To have "due soon / overdue" emails go out automatically, add a **Vercel Cron
-Job** hitting `GET /api/cron/run-alerts` once a day (set `CRON_SECRET` and pass
-`?key=...`). Email is still simulated until you connect a real provider in
-`src/lib/email.ts` — ask me when you want that turned on.
 
 ---
 

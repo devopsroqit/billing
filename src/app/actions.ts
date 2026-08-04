@@ -7,15 +7,13 @@ import { prisma } from "@/lib/db";
 import {
   getSessionUser,
   logout,
-  canEdit,
   assertCanEdit,
   assertCanManageUsers,
   hashPassword,
 } from "@/lib/auth";
 import { majorToMinor } from "@/lib/money";
 import { generateEntriesForPeriod, duplicatePreviousMonthEntries } from "@/lib/entries";
-import { runAlerts } from "@/lib/alerts";
-import { flushOutbox, sendWelcomeEmail } from "@/lib/email";
+import { sendWelcomeEmail } from "@/lib/email";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
 import ExcelJS from "exceljs";
 
@@ -387,37 +385,6 @@ export async function deleteUser(id: string) {
   await prisma.user.delete({ where: { id } });
   await audit(actor.id, "DELETE", "User", id, u.email);
   revalidatePath("/team");
-}
-
-// --------------------------------------------------------------------------
-// Alerts
-// --------------------------------------------------------------------------
-export async function runAlertsAction(recipientUserIds: string[] = []) {
-  const user = await requireUser();
-  if (!canEdit(user.role)) throw new Error("Only editors/admins can run alerts.");
-  const ids = Array.isArray(recipientUserIds) ? recipientUserIds.filter(Boolean) : [];
-  const r = await runAlerts({ recipientUserIds: ids });
-  await audit(
-    user.id,
-    "RUN_ALERTS",
-    "System",
-    undefined,
-    JSON.stringify({ ...r, recipientUserIds: ids }),
-  );
-  revalidatePath("/alerts");
-  const scope = ids.length > 0 ? ` to ${ids.length} selected recipient(s)` : "";
-  return {
-    message: `Marked ${r.markedOverdue} overdue · queued ${r.dueSoonQueued} due-soon + ${r.overdueQueued} overdue reminders${scope}.`,
-  };
-}
-
-export async function flushOutboxAction() {
-  const user = await requireUser();
-  if (!canEdit(user.role)) throw new Error("Only editors/admins can send email.");
-  const r = await flushOutbox();
-  await audit(user.id, "FLUSH_OUTBOX", "System", undefined, JSON.stringify(r));
-  revalidatePath("/alerts");
-  return { message: `Sent ${r.sent} email(s)${r.failed ? `, ${r.failed} failed` : ""}.` };
 }
 
 // ==========================================================================

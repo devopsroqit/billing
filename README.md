@@ -6,10 +6,9 @@ GitHub, AWS, Flespi, Twilio, Vercel, and the rest — replacing the
 members can use safely, together.
 
 It records each payment (in **INR, USD and EUR**), tracks **due dates** and
-**status** (Pending / Paid / Overdue), keeps every **invoice/receipt** attached
-and searchable in one place, and automatically emails the team **"due soon"**
-and **"overdue"** reminders. Everything is organized **month-on-month**, just
-like the spreadsheet's monthly tabs.
+**status** (Pending / Paid / Overdue), and keeps every **invoice/receipt**
+attached and searchable in one place. Everything is organized
+**month-on-month**, just like the spreadsheet's monthly tabs.
 
 > This is a **record-keeping tracker**, not a payment gateway. No money moves
 > through the app. Your team records what happened elsewhere (invoice received,
@@ -27,7 +26,6 @@ like the spreadsheet's monthly tabs.
 | **Monthly Tracker** | The spreadsheet, reimagined: one row per service per month — Service, Type, Frequency, Due date, Paid-on, Status, **INR / USD / EUR** amounts, This-Month-Paid, Notes, and attached documents. Month tabs across the top and a totals row at the bottom. Mark paid, edit, or delete inline. |
 | **Services** | Define each recurring vendor once (type, frequency, currency, due day, default amounts). Then **"Generate month"** creates that month's rows automatically — no re-typing. |
 | **Documents** | Every invoice & receipt, **searchable and filterable** by service and month — the "easy way of knowing the documents". Upload a file or paste a Google Drive link. |
-| **Alerts & Email** | The engine flags overdue rows and emails the team a reminder N days before a due date and again when overdue. All emails land in a visible outbox. |
 | **Team** | Admins add office members and set their access. |
 
 ## Access roles
@@ -75,23 +73,6 @@ The seed loads the real ROQIT services and three months of data (June paid,
 July current with an overdue AWS row, August upcoming) so every screen is
 populated on first run.
 
-## Running the reminder engine
-
-On demand from the **Alerts** page, or headless on a schedule:
-
-```bash
-npm run alerts:run        # flag overdue, queue reminders, "send" the outbox
-```
-
-Or hit the HTTP endpoint from any external scheduler (cron, GitHub Action, Vercel Cron):
-
-```
-GET /api/cron/run-alerts?key=<CRON_SECRET>
-```
-
-Set `CRON_SECRET` in the environment to require the key (leave unset for local dev).
-Tune how early reminders go out with `ALERT_DUE_SOON_DAYS` (default 5).
-
 ## Useful scripts
 
 | Command | What it does |
@@ -101,7 +82,6 @@ Tune how early reminders go out with `ALERT_DUE_SOON_DAYS` (default 5).
 | `npm run setup` | Generate Prisma client, create DB, seed |
 | `npm run db:reset` | Wipe & re-seed the database |
 | `npm run db:studio` | Open Prisma Studio to browse data |
-| `npm run alerts:run` | Run the reminder engine once |
 
 ## Going live later (the swap-in points)
 

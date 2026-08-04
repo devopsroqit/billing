@@ -17,12 +17,11 @@ then walks through every screen and the everyday tasks you'll do in it.
 7. [Services — your recurring vendors](#7-services--your-recurring-vendors)
 8. [Monthly Tracker — the heart of the app](#8-monthly-tracker--the-heart-of-the-app)
 9. [Documents — invoices & receipts](#9-documents--invoices--receipts)
-10. [Alerts & Email](#10-alerts--email)
-11. [Assets & Procurement](#11-assets--procurement)
-12. [Team (admins only)](#12-team-admins-only)
-13. [Common tasks — quick recipes](#13-common-tasks--quick-recipes)
-14. [Reference tables](#14-reference-tables)
-15. [FAQ & troubleshooting](#15-faq--troubleshooting)
+10. [Assets & Procurement](#10-assets--procurement)
+11. [Team (admins only)](#11-team-admins-only)
+12. [Common tasks — quick recipes](#12-common-tasks--quick-recipes)
+13. [Reference tables](#13-reference-tables)
+14. [FAQ & troubleshooting](#14-faq--troubleshooting)
 
 ---
 
@@ -97,7 +96,7 @@ bottom of the sidebar.
 Everything is reached from the **sidebar** on the left.
 
 - **Top:** the ROQIT logo.
-- **Main menu:** Dashboard, Monthly Tracker, Services, Documents, Alerts & Email.
+- **Main menu:** Dashboard, Monthly Tracker, Services, Documents.
 - **Assets section:** Assets overview, Suppliers, Purchases, Devices.
 - **Team:** only visible to Admins.
 - **Bottom:** the **light/dark toggle**, your name/role, and **Sign out**.
@@ -229,22 +228,7 @@ Purchase, or a Device) — see those sections.
 
 ---
 
-## 10. Alerts & Email
-
-Helps you stay ahead of due dates.
-
-- **Run alerts** — scans all rows: marks anything past its due date as
-  **Overdue**, and queues **due-soon** and **overdue** reminder emails.
-- **Send queued email** — flushes the outbox.
-
-> Email is delivered through whatever provider is configured for the
-> environment. If none is set up yet, reminders are still **queued and logged**
-> so nothing is lost — they'll send once email is switched on. This is an
-> Editor/Admin action.
-
----
-
-## 11. Assets & Procurement
+## 10. Assets & Procurement
 
 Tracks the IoT hardware ROQIT buys and where each unit ends up. Four screens work
 together.
@@ -282,7 +266,7 @@ device**:
 
 ---
 
-## 12. Team (admins only)
+## 11. Team (admins only)
 
 Admins manage who can log in. **Team → New member**:
 
@@ -294,7 +278,7 @@ Admins manage who can log in. **Team → New member**:
 
 ---
 
-## 13. Common tasks — quick recipes
+## 12. Common tasks — quick recipes
 
 **"It's a new month — set it up."**
 Monthly Tracker → switch to the new month → click **Duplicate [last month]** (or
@@ -326,7 +310,7 @@ login → ask them to tell you a new password to set, or reset it later.
 
 ---
 
-## 14. Reference tables
+## 13. Reference tables
 
 **Payment status**
 
@@ -358,7 +342,7 @@ repair
 
 ---
 
-## 15. FAQ & troubleshooting
+## 14. FAQ & troubleshooting
 
 **I don't see "Add" / "Edit" / "Team".**
 You're signed in as a Viewer or Editor. Those actions need Editor (for edits) or
