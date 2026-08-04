@@ -3,6 +3,7 @@ import { getSessionUser, canEdit } from "@/lib/auth";
 import { emailConfigured } from "@/lib/email";
 import { PageHeader, StatusBadge, EmptyState } from "@/components/ui";
 import { RunButton } from "@/components/RunButton";
+import { AlertsRunner } from "@/components/AlertsRunner";
 import { runAlertsAction, flushOutboxAction } from "@/app/actions";
 import { format } from "date-fns";
 
@@ -22,6 +23,17 @@ export default async function AlertsPage() {
   const emails = await prisma.emailOutbox.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
   const queued = emails.filter((e) => e.status === "QUEUED").length;
   const liveEmail = emailConfigured();
+
+  // The pickable recipients — active office team (Admins & Editors). These are
+  // the people reminders can go to; the picker lets an editor narrow a manual
+  // run to a subset, defaulting to everyone when nothing is ticked.
+  const members = editable
+    ? await prisma.user.findMany({
+        where: { active: true, role: { in: ["ADMIN", "EDITOR"] } },
+        select: { id: true, name: true, email: true, role: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
 
   return (
     <div>
@@ -52,9 +64,11 @@ export default async function AlertsPage() {
             </p>
           </div>
           {editable && (
-            <div className="flex flex-col items-end gap-2">
-              <RunButton action={runAlertsAction} label="Run alerts now" />
-              <RunButton action={flushOutboxAction} label="Send queued email" className="btn-secondary" />
+            <div className="flex w-full max-w-sm flex-col items-stretch gap-3">
+              <AlertsRunner members={members} action={runAlertsAction} label="Run alerts now" />
+              <div className="self-end">
+                <RunButton action={flushOutboxAction} label="Send queued email" className="btn-secondary" />
+              </div>
             </div>
           )}
         </div>

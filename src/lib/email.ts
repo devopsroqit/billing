@@ -106,7 +106,7 @@ export async function sendWelcomeEmail(args: {
   roleLabel: string;
   tempPassword?: string;
 }) {
-  const appUrl = (process.env.APP_URL || "https://billing-six-xi.vercel.app").replace(/\/+$/, "");
+  const appUrl = (process.env.APP_URL || "https://billing.roqit.com").replace(/\/+$/, "");
   const body = [
     `Hi ${args.toName},`,
     ``,

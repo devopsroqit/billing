@@ -2,9 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canManageUsers } from "@/lib/auth";
-import { toggleUserActive } from "@/app/actions";
+import { toggleUserActive, deleteUser } from "@/app/actions";
 import { ROLE_LABELS, ROLE_HINTS, type Role } from "@/lib/constants";
 import { PageHeader, StatusBadge } from "@/components/ui";
+import { DeleteButton } from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -53,11 +54,19 @@ export default async function TeamPage() {
                   <div className="flex items-center justify-end gap-2">
                     <Link href={`/team/${u.id}`} className="text-xs font-medium text-muted hover:underline">Edit</Link>
                     {u.id !== me.id && (
-                      <form action={toggleUserActive.bind(null, u.id)}>
-                        <button className="text-xs font-medium text-brand-600 hover:underline">
-                          {u.active ? "Deactivate" : "Activate"}
-                        </button>
-                      </form>
+                      <>
+                        <form action={toggleUserActive.bind(null, u.id)}>
+                          <button className="text-xs font-medium text-brand-600 hover:underline">
+                            {u.active ? "Deactivate" : "Activate"}
+                          </button>
+                        </form>
+                        <DeleteButton
+                          action={deleteUser.bind(null, u.id)}
+                          label="Remove"
+                          className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+                          confirmText={`Remove ${u.name}? This permanently deletes the account and can't be undone. Their past records are kept.`}
+                        />
+                      </>
                     )}
                   </div>
                 </td>
