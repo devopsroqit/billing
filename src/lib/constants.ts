@@ -110,6 +110,76 @@ export const DEVICE_CATEGORY_SUGGESTIONS = [
   "Other",
 ] as const;
 
+// --- CRM ---------------------------------------------------------------------
+export const ACCOUNT_TYPES = ["CUSTOMER", "PROSPECT", "PARTNER", "OTHER"] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
+  CUSTOMER: "Customer",
+  PROSPECT: "Prospect",
+  PARTNER: "Partner",
+  OTHER: "Other",
+};
+
+// Deal pipeline stages, in order. WON/LOST are terminal (a deal is closed).
+export const DEAL_STAGES = [
+  "NEW",
+  "QUALIFIED",
+  "PROPOSAL",
+  "NEGOTIATION",
+  "WON",
+  "LOST",
+] as const;
+export type DealStage = (typeof DEAL_STAGES)[number];
+export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
+  NEW: "New",
+  QUALIFIED: "Qualified",
+  PROPOSAL: "Proposal",
+  NEGOTIATION: "Negotiation",
+  WON: "Won",
+  LOST: "Lost",
+};
+export const TERMINAL_STAGES: DealStage[] = ["WON", "LOST"];
+export function isTerminalStage(stage: string): boolean {
+  return (TERMINAL_STAGES as string[]).includes(stage);
+}
+// Open pipeline stages only (used for kanban columns / pipeline value).
+export const OPEN_STAGES: DealStage[] = DEAL_STAGES.filter((s) => !isTerminalStage(s));
+
+export const DEAL_SOURCES = ["REFERRAL", "WEBSITE", "OUTBOUND", "EVENT", "OTHER"] as const;
+export type DealSource = (typeof DEAL_SOURCES)[number];
+export const DEAL_SOURCE_LABELS: Record<DealSource, string> = {
+  REFERRAL: "Referral",
+  WEBSITE: "Website",
+  OUTBOUND: "Outbound",
+  EVENT: "Event",
+  OTHER: "Other",
+};
+
+export const ACTIVITY_TYPES = ["NOTE", "CALL", "EMAIL", "MEETING", "TASK"] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  NOTE: "Note",
+  CALL: "Call",
+  EMAIL: "Email",
+  MEETING: "Meeting",
+  TASK: "Task",
+};
+// Icon name (see src/components/Icon.tsx) per activity type, for the timeline.
+export const ACTIVITY_TYPE_ICONS: Record<ActivityType, string> = {
+  NOTE: "folder",
+  CALL: "phone",
+  EMAIL: "mail",
+  MEETING: "calendar",
+  TASK: "check-square",
+};
+
+export const ACTIVITY_STATUSES = ["OPEN", "DONE"] as const;
+export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
+export const ACTIVITY_STATUS_LABELS: Record<ActivityStatus, string> = {
+  OPEN: "Open",
+  DONE: "Done",
+};
+
 // --- Month helpers ----------------------------------------------------------
 export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -138,4 +208,18 @@ export const STATUS_BADGE: Record<string, string> = {
   IN_REPAIR: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   RETURNED: "bg-brand-500/15 text-brand-600 dark:text-brand-500",
   RETIRED: "bg-slate-500/15 text-muted",
+  // CRM — deal stages
+  NEW: "bg-slate-500/15 text-muted",
+  QUALIFIED: "bg-brand-500/15 text-brand-600 dark:text-brand-500",
+  PROPOSAL: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+  NEGOTIATION: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  WON: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  LOST: "bg-red-500/15 text-red-600 dark:text-red-400",
+  // CRM — account types
+  CUSTOMER: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  PROSPECT: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  PARTNER: "bg-brand-500/15 text-brand-600 dark:text-brand-500",
+  // CRM — task status
+  OPEN: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  DONE: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
 };
