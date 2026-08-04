@@ -375,6 +375,20 @@ export async function toggleUserActive(id: string) {
   revalidatePath("/team");
 }
 
+export async function deleteUser(id: string) {
+  const actor = await requireUser();
+  assertCanManageUsers(actor.role);
+  if (id === actor.id) throw new Error("You can't remove your own account.");
+  const u = await prisma.user.findUnique({ where: { id } });
+  if (!u) return;
+  // History created by this member (payment entries, uploaded documents, audit
+  // log entries) is kept — those references are set to null automatically
+  // (onDelete: SetNull in the schema), so nothing in the record is lost.
+  await prisma.user.delete({ where: { id } });
+  await audit(actor.id, "DELETE", "User", id, u.email);
+  revalidatePath("/team");
+}
+
 // --------------------------------------------------------------------------
 // Alerts
 // --------------------------------------------------------------------------
