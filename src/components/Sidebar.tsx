@@ -19,6 +19,13 @@ const SECTIONS: { heading?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    heading: "CRM",
+    items: [
+      { href: "/crm/accounts", label: "Accounts", icon: "briefcase" },
+      { href: "/crm/contacts", label: "Contacts", icon: "users" },
+    ],
+  },
+  {
     heading: "Assets",
     items: [
       { href: "/assets", label: "Assets overview", icon: "package" },
