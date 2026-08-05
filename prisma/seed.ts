@@ -17,7 +17,9 @@ async function main() {
   await prisma.document.deleteMany();
   await prisma.paymentEntry.deleteMany();
   await prisma.service.deleteMany();
-  // CRM (order matters: tasks/activities → deals → contacts → companies)
+  // CRM (order matters: comments/notes/tasks/activities → deals → contacts → companies)
+  await prisma.activityComment.deleteMany();
+  await prisma.note.deleteMany();
   await prisma.task.deleteMany();
   await prisma.activity.deleteMany();
   await prisma.deal.deleteMany();
@@ -325,27 +327,44 @@ async function main() {
     },
   });
 
-  // Activities / timeline
-  await prisma.activity.create({
+  // Notes (user-authored)
+  await prisma.note.create({
     data: {
-      type: "NOTE", subject: "Kickoff notes", body: "Fleet team happy with rollout; upsell sensors later.",
-      status: "DONE", occurredAt: d(2026, 7, 1), companyId: bharat.id, dealId: bharatDeal.id,
-      ownerId: editor.id, createdById: editor.id,
+      body: "Fleet team happy with rollout; upsell sensors later.",
+      companyId: bharat.id, dealId: bharatDeal.id, authorId: editor.id,
     },
   });
-  await prisma.activity.create({
+  await prisma.note.create({
     data: {
-      type: "CALL", subject: "Intro call with Anita", body: "Walked through pilot scope and pricing.",
-      status: "DONE", occurredAt: d(2026, 7, 22), companyId: greenfleet.id, contactId: anita.id,
-      dealId: greenfleetDeal.id, ownerId: editor.id, createdById: editor.id,
+      body: "Intro call with Anita — walked through pilot scope and pricing.",
+      companyId: greenfleet.id, contactId: anita.id, dealId: greenfleetDeal.id, authorId: editor.id,
     },
   });
+  await prisma.note.create({
+    data: {
+      body: "Emailed cold-chain sensor spec + pricing grid.",
+      companyId: coastal.id, authorId: admin.id,
+    },
+  });
+
+  // Activity audit log (read-only) + a threaded comment
   await prisma.activity.create({
     data: {
-      type: "EMAIL", subject: "Shared cold-chain datasheet", body: "Emailed sensor spec + pricing grid.",
-      status: "DONE", occurredAt: d(2026, 7, 28), companyId: coastal.id,
-      ownerId: admin.id, createdById: admin.id,
+      action: "CREATED", entityType: "DEAL", entityId: bharatDeal.id,
+      summary: "Created deal 500-unit GPS tracker rollout", dealStage: "CASH_RECEIVED",
+      actorId: admin.id, companyId: bharat.id, dealId: bharatDeal.id,
     },
+  });
+  const stageActivity = await prisma.activity.create({
+    data: {
+      action: "STAGE_CHANGED", entityType: "DEAL", entityId: greenfleetDeal.id,
+      summary: "Moved deal to Deployment Started", field: "stage",
+      previousValue: "PROPOSAL", newValue: "DEPLOYMENT_STARTED", dealStage: "DEPLOYMENT_STARTED",
+      actorId: editor.id, companyId: greenfleet.id, dealId: greenfleetDeal.id,
+    },
+  });
+  await prisma.activityComment.create({
+    data: { activityId: stageActivity.id, authorId: admin.id, body: "Nice work @editor@roqit.com — keep the momentum." },
   });
 
   // Tasks (standalone module)

@@ -20,15 +20,15 @@ export default async function CrmUsersPage() {
     orderBy: { name: "asc" },
   });
 
-  // Companies owned per user, and open tasks per user — counted in one pass each.
+  // Companies owned per user, and open tasks assigned per user — one pass each.
   const [companyCounts, contactCounts, openTaskCounts] = await Promise.all([
     prisma.company.groupBy({ by: ["ownerId"], where: { active: true }, _count: true }),
     prisma.contact.groupBy({ by: ["ownerId"], _count: true }),
-    prisma.activity.groupBy({ by: ["ownerId"], where: { type: "TASK", status: "OPEN" }, _count: true }),
+    prisma.task.groupBy({ by: ["assigneeUserId"], where: { status: { notIn: ["DONE", "CANCELLED"] } }, _count: true }),
   ]);
   const companiesBy = new Map(companyCounts.map((r) => [r.ownerId, r._count]));
   const contactsBy = new Map(contactCounts.map((r) => [r.ownerId, r._count]));
-  const tasksBy = new Map(openTaskCounts.map((r) => [r.ownerId, r._count]));
+  const tasksBy = new Map(openTaskCounts.map((r) => [r.assigneeUserId, r._count]));
 
   return (
     <div>

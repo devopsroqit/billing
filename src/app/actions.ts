@@ -14,6 +14,7 @@ import {
 import { majorToMinor } from "@/lib/money";
 import { generateEntriesForPeriod, duplicatePreviousMonthEntries } from "@/lib/entries";
 import { sendWelcomeEmail } from "@/lib/email";
+import { logActivity } from "@/lib/activity";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
 import ExcelJS from "exceljs";
 
@@ -314,6 +315,13 @@ export async function addDocument(formData: FormData): Promise<{ ok?: true; erro
       });
     }
     await audit(user.id, "ADD_DOCUMENT", entity, id, title);
+    if (owner.dealId || owner.companyId || owner.contactId) {
+      await logActivity({
+        actorId: user.id, action: "DOCUMENT_ADDED", entityType: "DOCUMENT", entityId: id,
+        summary: `Attached document ${title || "(untitled)"}`,
+        dealId: owner.dealId ?? null, companyId: owner.companyId ?? null, contactId: owner.contactId ?? null,
+      });
+    }
     revalidatePath(revalidate);
     revalidatePath("/documents");
     return { ok: true };
@@ -333,6 +341,13 @@ export async function deleteDocument(id: string) {
   if (doc.entry) revalidatePath(trackerPath(doc.entry.periodYear, doc.entry.periodMonth));
   if (doc.purchaseId) revalidatePath(`/purchases/${doc.purchaseId}`);
   if (doc.deviceId) revalidatePath(`/devices/${doc.deviceId}`);
+  if (doc.dealId || doc.companyId || doc.contactId) {
+    await logActivity({
+      actorId: user.id, action: "DOCUMENT_REMOVED", entityType: "DOCUMENT", entityId: id,
+      summary: `Removed document ${doc.title}`,
+      dealId: doc.dealId, companyId: doc.companyId, contactId: doc.contactId,
+    });
+  }
   if (doc.dealId) revalidatePath(`/crm/deals/${doc.dealId}`);
   if (doc.companyId) revalidatePath(`/crm/companies/${doc.companyId}`);
   if (doc.contactId) revalidatePath(`/crm/contacts/${doc.contactId}`);

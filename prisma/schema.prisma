@@ -334,6 +334,7 @@ model Company {
   documents  Document[]
   devices    Device[]
   tasks      Task[]
+  noteEntries Note[]
 
   @@index([relationshipType])
   @@index([ownerId])
@@ -360,6 +361,7 @@ model Contact {
   activities     Activity[]
   documents      Document[]
   tasks          Task[]
+  noteEntries    Note[]
 
   @@index([companyId])
 }
@@ -398,40 +400,82 @@ model Deal {
   activities     Activity[]
   documents      Document[]
   tasks          Task[]
+  noteEntries    Note[]
 
   @@index([stage])
   @@index([companyId])
 }
 
-// A unified timeline record: a free-form note, a logged interaction (call /
-// email / meeting), or a task. `status` (OPEN|DONE) and `dueDate` are only
-// meaningful for TASK. Anchored to a company and/or a deal (Cascade so they
-// are cleaned up with their parent); a contact link is SetNull.
+// A read-only system audit log entry — the single source of truth for the
+// lifecycle of a CRM record. Generated automatically by logActivity() on every
+// mutation; users cannot create these manually. Anchored to the affected
+// company/contact/deal (SetNull so history survives if the parent is deleted).
+// Each entry supports threaded comments (ActivityComment).
 model Activity {
-  id          String    @id @default(cuid())
-  type        String    @default("NOTE") // NOTE | CALL | EMAIL | MEETING | TASK
-  subject     String
-  body        String?
-  status      String    @default("DONE") // OPEN | DONE
-  dueDate     DateTime?
-  occurredAt  DateTime  @default(now())
-  completedAt DateTime?
-  companyId   String?
-  contactId   String?
-  dealId      String?
-  ownerId     String?
-  createdById String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String   @id @default(cuid())
+  action        String // CREATED | UPDATED | DELETED | STAGE_CHANGED | OWNER_CHANGED | COMPLETED | REOPENED | INACTIVATED | REACTIVATED | CONTRIBUTOR_ADDED | CONTRIBUTOR_REMOVED | DOCUMENT_ADDED | DOCUMENT_REMOVED | NOTE_ADDED | COMMENTED
+  entityType    String // DEAL | COMPANY | CONTACT | TASK | NOTE | DOCUMENT | COLLABORATOR
+  entityId      String?
+  summary       String // human-readable one-line description
+  field         String?
+  previousValue String?
+  newValue      String?
+  dealStage     String? // snapshot of the deal's stage at the time (when relevant)
+  actorId       String? // User.id who performed the action
+  companyId     String?
+  contactId     String?
+  dealId        String?
+  createdAt     DateTime @default(now())
 
-  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  company  Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact  Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal     Deal?             @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  comments ActivityComment[]
 
   @@index([companyId])
   @@index([dealId])
-  @@index([dueDate])
-  @@index([status])
+  @@index([contactId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// A threaded comment on an Activity entry. Supports replies via parentId and
+// @mentions (parsed from body → notifications). Authored by a User.
+model ActivityComment {
+  id         String   @id @default(cuid())
+  activityId String
+  authorId   String?
+  body       String
+  parentId   String? // set for a reply
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  activity Activity          @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  parent   ActivityComment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  ActivityComment[] @relation("CommentThread")
+
+  @@index([activityId])
+}
+
+// A user-authored note on a CRM record (distinct from the read-only Activity
+// audit log). Anchored to a company/contact/deal.
+model Note {
+  id        String   @id @default(cuid())
+  body      String
+  dealId    String?
+  companyId String?
+  contactId String?
+  authorId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([dealId])
+  @@index([companyId])
+  @@index([contactId])
 }
 
 // A unit of work assigned to a team member (internal) or an external person.

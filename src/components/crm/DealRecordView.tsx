@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { StatusBadge } from "@/components/ui";
 import { InlineField } from "@/components/crm/InlineField";
-import { Feed, NoteComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { ActivityAuditFeed, type ActivityAuditItem } from "@/components/crm/ActivityAuditFeed";
+import { NotePanel, type NoteItem } from "@/components/crm/NotePanel";
 import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
 import { majorToMinor, minorToMajor, formatMoney } from "@/lib/money";
 import {
@@ -18,14 +18,8 @@ import {
   type CommercialModel,
   type Currency,
 } from "@/lib/constants";
-import {
-  updateDealField,
-  addActivity,
-  toggleActivityDone,
-  deleteActivity,
-} from "@/app/crm-actions";
+import { updateDealField } from "@/app/crm-actions";
 
-export type { ActivityItem };
 type Option = { id: string; name: string };
 type PersonItem = { id: string; name: string; title: string | null; isPrimary: boolean; email: string | null };
 export type DealData = {
@@ -62,7 +56,8 @@ export function DealRecordView({
   deal,
   companies,
   users,
-  activities,
+  auditItems,
+  noteItems,
   taskItems,
   people,
   nextDueTaskLabel,
@@ -73,7 +68,8 @@ export function DealRecordView({
   deal: DealData;
   companies: Option[];
   users: Option[];
-  activities: ActivityItem[];
+  auditItems: ActivityAuditItem[];
+  noteItems: NoteItem[];
   taskItems: TaskItem[];
   people: PersonItem[];
   nextDueTaskLabel: string | null;
@@ -82,15 +78,12 @@ export function DealRecordView({
   editable: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("Overview");
-  const router = useRouter();
 
   const currency = deal.currency as Currency;
   const initials = deal.title.trim().slice(0, 2).toUpperCase();
   const userName = (id: string | null) => (id ? users.find((u) => u.id === id)?.name ?? "—" : null);
   const companyName = deal.companyId ? companies.find((c) => c.id === deal.companyId)?.name ?? "—" : null;
   const save = (field: string) => (value: string) => updateDealField(deal.id, field, value);
-
-  const notes = activities.filter((a) => a.type === "NOTE");
 
   // Money fields edit in major units; render formats the minor-unit amount.
   const moneyValue = (minor: number) => (minor ? String(minorToMajor(minor)) : "");
@@ -108,7 +101,7 @@ export function DealRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? notes.length : t === "Tasks" ? taskItems.length : t === "People" ? people.length : t === "Activity" ? activities.length : t === "Documents" ? docCount : null;
+            const count = t === "Notes" ? noteItems.length : t === "Tasks" ? taskItems.length : t === "People" ? people.length : t === "Activity" ? auditItems.length : t === "Documents" ? docCount : null;
             return (
               <button
                 key={t}
@@ -147,57 +140,14 @@ export function DealRecordView({
             )}
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">Recent activity</p>
-              <Feed
-                items={activities.slice(0, 6)}
-                editable={editable}
-                onToggle={(id) => toggleActivityDone(id).then(() => router.refresh())}
-                onDelete={(id) => deleteActivity(id).then(() => router.refresh())}
-              />
+              <ActivityAuditFeed items={auditItems.slice(0, 6)} editable={editable} />
             </div>
           </div>
         )}
 
-        {tab === "Activity" && (
-          <div className="space-y-4">
-            {editable && (
-              <NoteComposer
-                onAdd={(text) =>
-                  addActivity({ dealId: deal.id, companyId: deal.companyId ?? undefined, type: "NOTE", subject: text }).then((r) => {
-                    if (!r || !("error" in r) || !r.error) router.refresh();
-                    return r;
-                  })
-                }
-              />
-            )}
-            <Feed
-              items={activities}
-              editable={editable}
-              onToggle={(id) => toggleActivityDone(id).then(() => router.refresh())}
-              onDelete={(id) => deleteActivity(id).then(() => router.refresh())}
-            />
-          </div>
-        )}
+        {tab === "Activity" && <ActivityAuditFeed items={auditItems} editable={editable} />}
 
-        {tab === "Notes" && (
-          <div className="space-y-4">
-            {editable && (
-              <NoteComposer
-                onAdd={(text) =>
-                  addActivity({ dealId: deal.id, companyId: deal.companyId ?? undefined, type: "NOTE", subject: text }).then((r) => {
-                    if (!r || !("error" in r) || !r.error) router.refresh();
-                    return r;
-                  })
-                }
-              />
-            )}
-            <Feed
-              items={notes}
-              editable={editable}
-              onToggle={(id) => toggleActivityDone(id).then(() => router.refresh())}
-              onDelete={(id) => deleteActivity(id).then(() => router.refresh())}
-            />
-          </div>
-        )}
+        {tab === "Notes" && <NotePanel notes={noteItems} anchor={{ dealId: deal.id }} editable={editable} />}
 
         {tab === "Tasks" && (
           <TaskPanel tasks={taskItems} users={users} anchor={{ dealId: deal.id }} editable={editable} />

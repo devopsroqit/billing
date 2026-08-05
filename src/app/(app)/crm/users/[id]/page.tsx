@@ -33,9 +33,9 @@ export default async function CrmUserDetailPage({ params }: { params: { id: stri
       include: { _count: { select: { contacts: true, deals: true } } },
     }),
     prisma.contact.count({ where: { ownerId: user.id } }),
-    prisma.activity.findMany({
-      where: { ownerId: user.id, type: "TASK", status: "OPEN" },
-      orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+    prisma.task.findMany({
+      where: { assigneeUserId: user.id, status: { notIn: ["DONE", "CANCELLED"] } },
+      orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
       include: { company: { select: { id: true, name: true } } },
     }),
   ]);
@@ -104,12 +104,12 @@ export default async function CrmUserDetailPage({ params }: { params: { id: stri
             {tasks.map((t) => (
               <div key={t.id} className="flex items-center justify-between px-4 py-3">
                 <span className="text-sm text-fg">
-                  {t.subject}
+                  {t.title}
                   {t.company && (
                     <Link href={`/crm/companies/${t.company.id}`} className="block text-xs text-brand-600 hover:underline">{t.company.name}</Link>
                   )}
                 </span>
-                <span className="text-xs text-faint">{t.dueDate ? `Due ${format(t.dueDate, "d MMM yyyy")}` : "No due date"}</span>
+                <span className="text-xs text-faint">{t.dueAt ? `Due ${format(t.dueAt, "d MMM yyyy")}` : "No due date"}</span>
               </div>
             ))}
           </div>
