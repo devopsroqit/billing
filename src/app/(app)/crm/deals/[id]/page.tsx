@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEdit } from "@/lib/auth";
 import { DeleteButton } from "@/components/DeleteButton";
+import { DocumentForm, DeleteDocButton } from "@/components/DocumentForm";
 import { DealRecordView } from "@/components/crm/DealRecordView";
-import { deleteDeal } from "@/app/crm-actions";
+import { deleteDeal, markDealInactive, markProjectCompleted } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,10 @@ export default async function DealDetailPage({ params }: { params: { id: string 
       activities: {
         orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
         include: { contact: { select: { firstName: true, lastName: true } } },
+      },
+      documents: {
+        orderBy: { createdAt: "desc" },
+        include: { uploadedBy: { select: { name: true } } },
       },
     },
   });
@@ -66,10 +72,46 @@ export default async function DealDetailPage({ params }: { params: { id: string 
     ? `${nextTask.subject}${nextTask.dueDate ? ` · due ${format(nextTask.dueDate, "d MMM yyyy")}` : ""}`
     : null;
 
+  const documentsSlot = (
+    <>
+      {deal.documents.length === 0 ? (
+        <p className="card p-4 text-sm text-muted">No documents yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {deal.documents.map((doc) => (
+            <li key={doc.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 px-3 py-2">
+              <div className="min-w-0">
+                {doc.kind === "LINK" ? (
+                  <a href={doc.externalUrl ?? "#"} target="_blank" rel="noreferrer" className="truncate text-sm text-brand-600 hover:underline">🔗 {doc.title}</a>
+                ) : (
+                  <a href={`/api/documents/${doc.id}`} className="truncate text-sm text-brand-600 hover:underline">📄 {doc.title}</a>
+                )}
+                <p className="text-[11px] text-faint">{doc.uploadedBy?.name ?? "—"} · {format(doc.createdAt, "d MMM yyyy")}</p>
+              </div>
+              {editable && <DeleteDocButton id={doc.id} />}
+            </li>
+          ))}
+        </ul>
+      )}
+      {editable && <DocumentForm dealId={deal.id} />}
+    </>
+  );
+
   return (
     <div>
       {editable && (
-        <div className="mb-3 flex items-center justify-end gap-2">
+        <div className="mb-3 flex flex-wrap items-center justify-end gap-3">
+          <Link href={`/crm/deals/${deal.id}/edit`} className="text-xs font-medium text-muted hover:underline">Edit deal</Link>
+          <form action={markProjectCompleted.bind(null, deal.id)}>
+            <button className="text-xs font-medium text-brand-600 hover:underline">
+              {deal.projectCompletedAt ? "Reopen project" : "Mark project completed"}
+            </button>
+          </form>
+          <form action={markDealInactive.bind(null, deal.id)}>
+            <button className="text-xs font-medium text-muted hover:underline">
+              {deal.active ? "Mark inactive" : "Reactivate"}
+            </button>
+          </form>
           <DeleteButton
             action={deleteDeal.bind(null, deal.id)}
             label="Delete"
@@ -98,12 +140,16 @@ export default async function DealDetailPage({ params }: { params: { id: string 
           firstPaymentDate: asDateInput(deal.firstPaymentDate),
           lossReason: deal.lossReason,
           notes: deal.notes,
+          active: deal.active,
+          projectCompletedLabel: deal.projectCompletedAt ? format(deal.projectCompletedAt, "d MMM yyyy") : null,
         }}
         companies={companies}
         users={users}
         activities={activities}
         people={people}
         nextDueTaskLabel={nextDueTaskLabel}
+        documentsSlot={documentsSlot}
+        docCount={deal.documents.length}
         editable={editable}
       />
     </div>

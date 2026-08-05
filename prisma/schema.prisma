@@ -383,6 +383,8 @@ model Deal {
   firstPaymentDate  DateTime?
   closedAt          DateTime? // set when the stage becomes terminal (Cash Received)
   lossReason        String? // when set, the deal is considered lost
+  active            Boolean   @default(true) // false = deal marked inactive
+  projectCompletedAt DateTime? // set when the project is marked completed
   notes             String?
   ownerId           String?
   createdById       String?

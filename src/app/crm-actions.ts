@@ -404,6 +404,29 @@ export async function deleteDeal(id: string) {
   redirect("/crm/deals");
 }
 
+// Toggle a deal's active flag (Mark Deal as Inactive / Reactivate).
+export async function markDealInactive(id: string) {
+  const user = await requireEditor();
+  const d = await prisma.deal.findUnique({ where: { id } });
+  if (!d) return;
+  await prisma.deal.update({ where: { id }, data: { active: !d.active } });
+  await audit(user.id, d.active ? "DEACTIVATE" : "ACTIVATE", "Deal", id, d.title);
+  revalidatePath("/crm/deals");
+  revalidatePath(`/crm/deals/${id}`);
+}
+
+// Toggle a deal's project-completed marker (Mark Project as Completed / Reopen).
+export async function markProjectCompleted(id: string) {
+  const user = await requireEditor();
+  const d = await prisma.deal.findUnique({ where: { id } });
+  if (!d) return;
+  const done = !d.projectCompletedAt;
+  await prisma.deal.update({ where: { id }, data: { projectCompletedAt: done ? new Date() : null } });
+  await audit(user.id, done ? "PROJECT_COMPLETED" : "PROJECT_REOPENED", "Deal", id, d.title);
+  revalidatePath("/crm/deals");
+  revalidatePath(`/crm/deals/${id}`);
+}
+
 // ===========================================================================
 // Activities (notes / tasks / logged interactions) — the record timeline
 // ===========================================================================

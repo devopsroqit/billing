@@ -45,9 +45,11 @@ export type DealData = {
   firstPaymentDate: string | null;
   lossReason: string | null;
   notes: string | null;
+  active: boolean;
+  projectCompletedLabel: string | null;
 };
 
-const TABS = ["Overview", "Activity", "Notes", "Tasks", "People"] as const;
+const TABS = ["Overview", "Activity", "Notes", "Tasks", "People", "Documents"] as const;
 type Tab = (typeof TABS)[number];
 
 const fmtDate = (v: string) => {
@@ -62,6 +64,8 @@ export function DealRecordView({
   activities,
   people,
   nextDueTaskLabel,
+  documentsSlot,
+  docCount,
   editable,
 }: {
   deal: DealData;
@@ -70,6 +74,8 @@ export function DealRecordView({
   activities: ActivityItem[];
   people: PersonItem[];
   nextDueTaskLabel: string | null;
+  documentsSlot: React.ReactNode;
+  docCount: number;
   editable: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("Overview");
@@ -100,7 +106,7 @@ export function DealRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? notes.length : t === "Tasks" ? tasks.length : t === "People" ? people.length : t === "Activity" ? activities.length : null;
+            const count = t === "Notes" ? notes.length : t === "Tasks" ? tasks.length : t === "People" ? people.length : t === "Activity" ? activities.length : t === "Documents" ? docCount : null;
             return (
               <button
                 key={t}
@@ -232,6 +238,8 @@ export function DealRecordView({
             )}
           </div>
         )}
+
+        {tab === "Documents" && <div className="space-y-3">{documentsSlot}</div>}
       </div>
 
       {/* RIGHT RAIL */}
@@ -244,8 +252,10 @@ export function DealRecordView({
             <div className="text-base font-semibold text-fg">
               <InlineField value={deal.title} placeholder="Deal name" editable={editable} onSave={save("title")} />
             </div>
-            <div className="mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <StatusBadge status={deal.stage} label={DEAL_STAGE_LABELS[deal.stage as DealStage] ?? deal.stage} />
+              {!deal.active && <StatusBadge status="INACTIVE" label="Inactive" />}
+              {deal.projectCompletedLabel && <StatusBadge status="DONE" label="Project completed" />}
             </div>
           </div>
         </div>

@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   description: "Internal payment & asset tracker — vendors, monthly payments, IoT device procurement, and documents.",
 };
 
-// Runs before paint to set the theme class from the saved choice or the OS
-// preference, avoiding a light/dark flash on load.
-const themeScript = `(function(){try{var d=document.documentElement;var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){d.classList.add('dark');}if(localStorage.getItem('sidebar')==='collapsed'){d.classList.add('sidebar-collapsed');}}catch(e){}})();`;
+// Runs before paint to restore the saved sidebar state. The app is light-mode
+// only (dark mode was removed), so no theme class is applied.
+const themeScript = `(function(){try{if(localStorage.getItem('sidebar')==='collapsed'){document.documentElement.classList.add('sidebar-collapsed');}}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

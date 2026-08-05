@@ -105,6 +105,8 @@ export default async function DealsPage({
                   <tr key={d.id} className="hover:bg-surface-2">
                     <td className="td font-medium text-fg">
                       <Link href={`/crm/deals/${d.id}`} className="hover:underline">{d.title}</Link>
+                      {!d.active && <span className="ml-2 text-xs text-faint">· Inactive</span>}
+                      {d.projectCompletedAt && <span className="ml-2 text-xs text-emerald-600">· Completed</span>}
                       {d.company && <span className="block text-xs text-faint">{d.company.name}</span>}
                     </td>
                     <td className="td"><StatusBadge status={d.stage} label={DEAL_STAGE_LABELS[d.stage as DealStage] ?? d.stage} /></td>

@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Icon } from "@/components/Icon";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 type NavItem = { href: string; label: string; icon: string; adminOnly?: boolean };
 const SECTIONS: { heading?: string; items: NavItem[] }[] = [
@@ -112,7 +111,6 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: R
 
   const footer = (
     <div className="border-t border-border p-3">
-      <ThemeToggle />
       <div className="sidebar-label mt-1 rounded-lg px-3 py-2">
         <p className="truncate text-sm font-medium text-fg">{user.name}</p>
         <p className="truncate text-xs text-faint">{user.email}</p>
