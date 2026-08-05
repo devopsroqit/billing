@@ -362,18 +362,27 @@ model Contact {
   @@index([companyId])
 }
 
-// A sales opportunity moving through pipeline stages to won/lost.
+// A sales opportunity moving through the pipeline (Lead → Cash Received).
 model Deal {
   id                String    @id @default(cuid())
   title             String
   companyId         String?
   primaryContactId  String?
-  stage             String    @default("NEW") // NEW | QUALIFIED | PROPOSAL | NEGOTIATION | WON | LOST
+  stage             String    @default("LEAD") // see DEAL_STAGES in constants.ts
+  commercialModel   String? // see COMMERCIAL_MODELS in constants.ts
   amountMinor       Int       @default(0) // deal value in minor units
+  arrMinor          Int       @default(0) // annual recurring revenue in minor units
   currency          String    @default("INR") // INR | USD | EUR
+  assetsInScope     Int? // number of assets/devices in scope
+  packsInScope      String? // free-text description of packs in scope
+  nextAction        String?
   source            String? // REFERRAL | WEBSITE | OUTBOUND | EVENT | OTHER
   expectedCloseDate DateTime?
-  closedAt          DateTime? // set when the stage becomes terminal (WON/LOST)
+  contractSignedDate DateTime?
+  firstInvoiceDate  DateTime?
+  firstPaymentDate  DateTime?
+  closedAt          DateTime? // set when the stage becomes terminal (Cash Received)
+  lossReason        String? // when set, the deal is considered lost
   notes             String?
   ownerId           String?
   createdById       String?

@@ -182,18 +182,21 @@ export function CompanyRecordView({
 
         {tab === "Deals" && (
           <div className="space-y-3">
+            {editable && (
+              <Link href={`/crm/deals/new?companyId=${company.id}`} className="btn-primary inline-flex">＋ Add deal</Link>
+            )}
             {deals.length === 0 ? (
               <p className="card p-4 text-sm text-muted">No deals yet.</p>
             ) : (
               <div className="card divide-y divide-border">
                 {deals.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between px-4 py-3">
+                  <Link key={d.id} href={`/crm/deals/${d.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-surface-2">
                     <span className="text-sm text-fg">{d.title}</span>
                     <span className="flex items-center gap-3">
                       <span className="text-sm text-muted">{d.amountLabel}</span>
                       <StatusBadge status={d.stage} label={d.stageLabel} />
                     </span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

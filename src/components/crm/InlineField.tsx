@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-type Kind = "text" | "email" | "tel" | "textarea" | "select";
+type Kind = "text" | "email" | "tel" | "date" | "textarea" | "select";
 type Opt = { value: string; label: string };
 
 // A single field that shows its value (or a guiding placeholder) and turns into

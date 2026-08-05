@@ -5,11 +5,16 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSessionUser, logout, assertCanEdit } from "@/lib/auth";
+import { majorToMinor } from "@/lib/money";
 import {
   RELATIONSHIP_TYPES,
   COMPANY_SOURCES,
   COMPANY_SIZES,
   ACTIVITY_TYPES,
+  DEAL_STAGES,
+  COMMERCIAL_MODELS,
+  CURRENCIES,
+  isTerminalStage,
 } from "@/lib/constants";
 
 // CRM server actions. Kept separate from the large src/app/actions.ts. Same
@@ -51,6 +56,19 @@ function orNullInt(v: unknown): number | null {
   if (s === "") return null;
   const n = Number.parseInt(s, 10);
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/** Parse an optional date input (e.g. an <input type="date">); empty → null. */
+function parseDate(s?: string | null): Date | null {
+  if (!s || !s.trim()) return null;
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+/** Parse a money input (major units, e.g. rupees) → minor units (paise). */
+function orMinor(v: unknown): number {
+  const n = typeof v === "string" ? Number.parseFloat(v) : typeof v === "number" ? v : 0;
+  return Number.isFinite(n) && n > 0 ? majorToMinor(n) : 0;
 }
 
 // ===========================================================================
@@ -244,6 +262,146 @@ export async function updateContactField(id: string, field: string, value: strin
   if (before?.companyId) revalidatePath(`/crm/companies/${before.companyId}`);
   if (field === "companyId" && stored) revalidatePath(`/crm/companies/${stored as string}`);
   return { ok: true };
+}
+
+// ===========================================================================
+// Deals
+// ===========================================================================
+const dealSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Deal name is required"),
+  companyId: z.string().optional(),
+  ownerId: z.string().optional(),
+  stage: z.enum(DEAL_STAGES),
+  commercialModel: z.string().optional(),
+  currency: z.enum(CURRENCIES),
+  amount: z.coerce.number().min(0).default(0),
+  arr: z.coerce.number().min(0).default(0),
+  assetsInScope: z.string().optional(),
+  packsInScope: z.string().optional(),
+  nextAction: z.string().optional(),
+  contractSignedDate: z.string().optional(),
+  firstInvoiceDate: z.string().optional(),
+  firstPaymentDate: z.string().optional(),
+  lossReason: z.string().optional(),
+});
+
+export async function saveDeal(formData: FormData) {
+  const user = await requireEditor();
+  const raw = Object.fromEntries(formData) as Record<string, string>;
+  const p = dealSchema.parse(raw);
+  const data = {
+    title: p.title.trim(),
+    companyId: orNull(p.companyId),
+    ownerId: orNull(p.ownerId),
+    stage: p.stage,
+    commercialModel: orNullEnum(p.commercialModel, COMMERCIAL_MODELS),
+    currency: p.currency,
+    amountMinor: majorToMinor(p.amount),
+    arrMinor: majorToMinor(p.arr),
+    assetsInScope: orNullInt(p.assetsInScope),
+    packsInScope: orNull(p.packsInScope),
+    nextAction: orNull(p.nextAction),
+    contractSignedDate: parseDate(p.contractSignedDate),
+    firstInvoiceDate: parseDate(p.firstInvoiceDate),
+    firstPaymentDate: parseDate(p.firstPaymentDate),
+    lossReason: orNull(p.lossReason),
+    closedAt: isTerminalStage(p.stage) ? new Date() : null,
+  };
+
+  if (p.id) {
+    await prisma.deal.update({ where: { id: p.id }, data });
+    await audit(user.id, "UPDATE", "Deal", p.id, data.title);
+    revalidatePath("/crm/deals");
+    revalidatePath(`/crm/deals/${p.id}`);
+    if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
+    redirect(`/crm/deals/${p.id}`);
+  }
+  const created = await prisma.deal.create({ data: { ...data, createdById: user.id } });
+  await audit(user.id, "CREATE", "Deal", created.id, data.title);
+  revalidatePath("/crm/deals");
+  if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
+  redirect(`/crm/deals/${created.id}`);
+}
+
+// Quick stage change from the list or record view. Manages closedAt.
+export async function updateDealStage(id: string, stage: string) {
+  const user = await requireEditor();
+  if (!(DEAL_STAGES as readonly string[]).includes(stage)) return { error: "Invalid stage." };
+  const before = await prisma.deal.findUnique({ where: { id }, select: { companyId: true, closedAt: true } });
+  await prisma.deal.update({
+    where: { id },
+    data: { stage, closedAt: isTerminalStage(stage) ? (before?.closedAt ?? new Date()) : null },
+  });
+  await audit(user.id, "UPDATE", "Deal", id, `stage → ${stage}`);
+  revalidatePath("/crm/deals");
+  revalidatePath(`/crm/deals/${id}`);
+  if (before?.companyId) revalidatePath(`/crm/companies/${before.companyId}`);
+  return { ok: true };
+}
+
+// Inline single-field edit from the record page. Whitelisted fields only.
+const EDITABLE_DEAL_FIELDS = [
+  "title", "stage", "commercialModel", "amount", "arr", "assetsInScope",
+  "packsInScope", "nextAction", "companyId", "ownerId", "contractSignedDate",
+  "firstInvoiceDate", "firstPaymentDate", "lossReason", "notes",
+] as const;
+
+// Money and date fields need type-specific coercion on inline save.
+const DEAL_MONEY_FIELDS = new Set(["amount", "arr"]);
+const DEAL_DATE_FIELDS = new Set(["contractSignedDate", "firstInvoiceDate", "firstPaymentDate"]);
+// Map the UI money field name to its storage column.
+const DEAL_MONEY_COLUMN: Record<string, string> = { amount: "amountMinor", arr: "arrMinor" };
+
+export async function updateDealField(id: string, field: string, value: string) {
+  const user = await requireEditor();
+  if (!(EDITABLE_DEAL_FIELDS as readonly string[]).includes(field)) {
+    return { error: "That field can't be edited." };
+  }
+  const trimmed = value.trim();
+  if (field === "title" && !trimmed) return { error: "Deal name can't be empty." };
+  if (field === "stage" && !(DEAL_STAGES as readonly string[]).includes(trimmed)) {
+    return { error: "Invalid stage." };
+  }
+  if (field === "commercialModel" && trimmed && !(COMMERCIAL_MODELS as readonly string[]).includes(trimmed)) {
+    return { error: "Invalid commercial model." };
+  }
+
+  const data: Record<string, unknown> = {};
+  if (DEAL_MONEY_FIELDS.has(field)) {
+    data[DEAL_MONEY_COLUMN[field]] = orMinor(trimmed);
+  } else if (DEAL_DATE_FIELDS.has(field)) {
+    data[field] = parseDate(trimmed);
+  } else if (field === "assetsInScope") {
+    data[field] = orNullInt(trimmed);
+  } else if (field === "stage") {
+    data.stage = trimmed;
+    data.closedAt = isTerminalStage(trimmed) ? new Date() : null;
+  } else if (field === "title") {
+    data.title = trimmed;
+  } else {
+    data[field] = trimmed === "" ? null : trimmed;
+  }
+
+  const before = await prisma.deal.findUnique({ where: { id }, select: { companyId: true } });
+  await prisma.deal.update({ where: { id }, data });
+  await audit(user.id, "UPDATE", "Deal", id, field);
+  revalidatePath(`/crm/deals/${id}`);
+  revalidatePath("/crm/deals");
+  if (before?.companyId) revalidatePath(`/crm/companies/${before.companyId}`);
+  if (field === "companyId" && data.companyId) revalidatePath(`/crm/companies/${data.companyId as string}`);
+  return { ok: true };
+}
+
+export async function deleteDeal(id: string) {
+  const user = await requireEditor();
+  const d = await prisma.deal.findUnique({ where: { id } });
+  if (!d) return;
+  await prisma.deal.delete({ where: { id } });
+  await audit(user.id, "DELETE", "Deal", id, d.title);
+  revalidatePath("/crm/deals");
+  if (d.companyId) revalidatePath(`/crm/companies/${d.companyId}`);
+  redirect("/crm/deals");
 }
 
 // ===========================================================================

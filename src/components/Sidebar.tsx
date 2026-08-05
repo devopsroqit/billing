@@ -23,6 +23,7 @@ const SECTIONS: { heading?: string; items: NavItem[] }[] = [
     items: [
       { href: "/crm/companies", label: "Companies", icon: "briefcase" },
       { href: "/crm/contacts", label: "Contacts", icon: "users" },
+      { href: "/crm/deals", label: "Deals", icon: "trending-up" },
       { href: "/crm/users", label: "Users", icon: "user-check" },
     ],
   },

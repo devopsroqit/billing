@@ -269,7 +269,11 @@ async function main() {
   const bharatDeal = await prisma.deal.create({
     data: {
       title: "500-unit GPS tracker rollout", companyId: bharat.id, primaryContactId: rajesh.id,
-      stage: "WON", amountMinor: inr(1850000), currency: "INR", source: "REFERRAL",
+      stage: "CASH_RECEIVED", commercialModel: "LICENSE_AMC",
+      amountMinor: inr(1850000), arrMinor: inr(360000), currency: "INR", source: "REFERRAL",
+      assetsInScope: 500, packsInScope: "Fleet Pack",
+      nextAction: "Schedule AMC renewal check-in",
+      contractSignedDate: d(2026, 5, 10), firstInvoiceDate: d(2026, 6, 1), firstPaymentDate: d(2026, 6, 28),
       expectedCloseDate: d(2026, 6, 30), closedAt: d(2026, 6, 28),
       notes: "Closed-won. Hardware delivered, subscription active.",
       ownerId: editor.id, createdById: admin.id,
@@ -278,23 +282,33 @@ async function main() {
   const greenfleetDeal = await prisma.deal.create({
     data: {
       title: "Fleet pilot — 50 trackers", companyId: greenfleet.id, primaryContactId: anita.id,
-      stage: "PROPOSAL", amountMinor: inr(275000), currency: "INR", source: "WEBSITE",
-      expectedCloseDate: d(2026, 9, 15), notes: "Proposal sent; awaiting pilot go-ahead.",
+      stage: "DEPLOYMENT_STARTED", commercialModel: "SAAS_RECURRING",
+      amountMinor: inr(275000), arrMinor: inr(180000), currency: "INR", source: "WEBSITE",
+      assetsInScope: 50, packsInScope: "Fleet Pack (Pilot)",
+      nextAction: "Complete initial deployment and signoff",
+      contractSignedDate: d(2026, 7, 5), firstInvoiceDate: d(2026, 7, 20),
+      expectedCloseDate: d(2026, 9, 15), notes: "Deployment underway for the EV pilot.",
       ownerId: editor.id, createdById: admin.id,
     },
   });
   await prisma.deal.create({
     data: {
       title: "Cold-chain sensor deployment", companyId: coastal.id,
-      stage: "NEGOTIATION", amountMinor: inr(640000), currency: "INR", source: "OUTBOUND",
-      expectedCloseDate: d(2026, 8, 31), notes: "Negotiating unit price for 120 sensors.",
+      stage: "PROCUREMENT_ENGAGED", commercialModel: "CUSTOMER_FUNDED_BUILD",
+      amountMinor: inr(640000), currency: "INR", source: "OUTBOUND",
+      assetsInScope: 120, packsInScope: "Cold-chain Pack",
+      nextAction: "Align on unit pricing with procurement",
+      expectedCloseDate: d(2026, 8, 31), notes: "Procurement engaged on 120 sensors.",
       ownerId: admin.id, createdById: admin.id,
     },
   });
   const metroDeal = await prisma.deal.create({
     data: {
       title: "Bus fleet telematics RFP", companyId: metro.id, primaryContactId: priya.id,
-      stage: "QUALIFIED", amountMinor: inr(4200000), currency: "INR", source: "EVENT",
+      stage: "QUALIFIED", commercialModel: "REVENUE_SHARE",
+      amountMinor: inr(4200000), currency: "INR", source: "EVENT",
+      assetsInScope: 800, packsInScope: "Transit Pack",
+      nextAction: "Prepare RFP response",
       expectedCloseDate: d(2026, 11, 30), notes: "Qualified via transport expo. Large RFP.",
       ownerId: editor.id, createdById: admin.id,
     },
@@ -302,8 +316,10 @@ async function main() {
   await prisma.deal.create({
     data: {
       title: "Legacy quote (superseded)", companyId: greenfleet.id,
-      stage: "LOST", amountMinor: inr(90000), currency: "INR", source: "OTHER",
-      closedAt: d(2026, 5, 20), notes: "Lost — replaced by the pilot proposal.",
+      stage: "CONTACTED", commercialModel: "POC_FREE",
+      amountMinor: inr(90000), currency: "INR", source: "OTHER",
+      lossReason: "Superseded by the pilot proposal; pricing no longer competitive.",
+      notes: "Lost — replaced by the pilot proposal.",
       ownerId: editor.id, createdById: admin.id,
     },
   });

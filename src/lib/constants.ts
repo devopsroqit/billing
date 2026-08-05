@@ -154,30 +154,60 @@ export const COMPANY_SIZE_LABELS: Record<CompanySize, string> = {
   ENTERPRISE: "Enterprise",
 };
 
-// Deal pipeline stages, in order. WON/LOST are terminal (a deal is closed).
+// Deal pipeline stages, in order. Cash Received is terminal (fully closed-won);
+// a lost deal is marked by setting Deal.lossReason rather than a stage.
 export const DEAL_STAGES = [
-  "NEW",
+  "LEAD",
+  "CONTACTED",
   "QUALIFIED",
-  "PROPOSAL",
-  "NEGOTIATION",
-  "WON",
-  "LOST",
+  "SOLUTION_VALIDATED",
+  "COMMERCIALS_ISSUED",
+  "PROCUREMENT_ENGAGED",
+  "WON_CONTRACTED",
+  "DEPLOYMENT_STARTED",
+  "BILLING_ACTIVE",
+  "CASH_RECEIVED",
 ] as const;
 export type DealStage = (typeof DEAL_STAGES)[number];
 export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
-  NEW: "New",
+  LEAD: "Lead",
+  CONTACTED: "Contacted",
   QUALIFIED: "Qualified",
-  PROPOSAL: "Proposal",
-  NEGOTIATION: "Negotiation",
-  WON: "Won",
-  LOST: "Lost",
+  SOLUTION_VALIDATED: "Solution Validated",
+  COMMERCIALS_ISSUED: "Commercials Issued",
+  PROCUREMENT_ENGAGED: "Procurement Engaged",
+  WON_CONTRACTED: "Won/Contracted",
+  DEPLOYMENT_STARTED: "Deployment Started",
+  BILLING_ACTIVE: "Billing Active",
+  CASH_RECEIVED: "Cash Received",
 };
-export const TERMINAL_STAGES: DealStage[] = ["WON", "LOST"];
+export const TERMINAL_STAGES: DealStage[] = ["CASH_RECEIVED"];
 export function isTerminalStage(stage: string): boolean {
   return (TERMINAL_STAGES as string[]).includes(stage);
 }
 // Open pipeline stages only (used for kanban columns / pipeline value).
 export const OPEN_STAGES: DealStage[] = DEAL_STAGES.filter((s) => !isTerminalStage(s));
+
+// How a deal is priced / structured commercially.
+export const COMMERCIAL_MODELS = [
+  "SAAS_RECURRING",
+  "POC_PAID_PILOT",
+  "POC_FREE",
+  "CUSTOMER_FUNDED_BUILD",
+  "LICENSE_AMC",
+  "REVENUE_SHARE",
+  "CUSTOM",
+] as const;
+export type CommercialModel = (typeof COMMERCIAL_MODELS)[number];
+export const COMMERCIAL_MODEL_LABELS: Record<CommercialModel, string> = {
+  SAAS_RECURRING: "SaaS Recurring",
+  POC_PAID_PILOT: "POC / Paid Pilot",
+  POC_FREE: "POC (Free)",
+  CUSTOMER_FUNDED_BUILD: "Customer Funded Build",
+  LICENSE_AMC: "License + AMC",
+  REVENUE_SHARE: "Revenue Share",
+  CUSTOM: "Custom",
+};
 
 export const DEAL_SOURCES = ["REFERRAL", "WEBSITE", "OUTBOUND", "EVENT", "OTHER"] as const;
 export type DealSource = (typeof DEAL_SOURCES)[number];
@@ -242,13 +272,17 @@ export const STATUS_BADGE: Record<string, string> = {
   IN_REPAIR: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   RETURNED: "bg-brand-500/15 text-brand-600 dark:text-brand-500",
   RETIRED: "bg-slate-500/15 text-muted",
-  // CRM — deal stages
-  NEW: "bg-slate-500/15 text-muted",
+  // CRM — deal pipeline stages
+  LEAD: "bg-slate-500/15 text-muted",
+  CONTACTED: "bg-slate-500/15 text-muted",
   QUALIFIED: "bg-brand-500/15 text-brand-600 dark:text-brand-500",
-  PROPOSAL: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
-  NEGOTIATION: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  WON: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  LOST: "bg-red-500/15 text-red-600 dark:text-red-400",
+  SOLUTION_VALIDATED: "bg-brand-500/15 text-brand-600 dark:text-brand-500",
+  COMMERCIALS_ISSUED: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+  PROCUREMENT_ENGAGED: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+  WON_CONTRACTED: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  DEPLOYMENT_STARTED: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  BILLING_ACTIVE: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  CASH_RECEIVED: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   // CRM — company relationship types
   CUSTOMER: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   PROSPECT: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
