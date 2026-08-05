@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSessionUser, logout, assertCanEdit } from "@/lib/auth";
-import { ACCOUNT_TYPES, ACTIVITY_TYPES } from "@/lib/constants";
+import {
+  RELATIONSHIP_TYPES,
+  COMPANY_SOURCES,
+  COMPANY_SIZES,
+  ACTIVITY_TYPES,
+} from "@/lib/constants";
 
 // CRM server actions. Kept separate from the large src/app/actions.ts. Same
 // conventions: zod-validate FormData, guard with requireEditor(), write via
@@ -40,73 +45,93 @@ function orNull(v: unknown): string | null {
   return s === "" ? null : s;
 }
 
+/** Parse an optional integer input; empty/invalid → null. */
+function orNullInt(v: unknown): number | null {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (s === "") return null;
+  const n = Number.parseInt(s, 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 // ===========================================================================
-// Accounts
+// Companies
 // ===========================================================================
-const accountSchema = z.object({
+const companySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Name is required"),
-  type: z.enum(ACCOUNT_TYPES),
-  industry: z.string().optional(),
-  website: z.string().optional(),
+  relationshipType: z.enum(RELATIONSHIP_TYPES),
+  source: z.string().optional(),
+  size: z.string().optional(),
+  domains: z.string().optional(),
+  categories: z.string().optional(),
+  primaryLocation: z.string().optional(),
+  teamSize: z.string().optional(),
+  description: z.string().optional(),
   email: z.string().optional(),
   phone: z.string().optional(),
-  address: z.string().optional(),
   gstin: z.string().optional(),
-  notes: z.string().optional(),
   ownerId: z.string().optional(),
 });
 
-export async function saveAccount(formData: FormData) {
+// Validate an optional enum-like value against its allowed set (blank = null).
+function orNullEnum(v: unknown, allowed: readonly string[]): string | null {
+  const s = orNull(v);
+  return s && allowed.includes(s) ? s : null;
+}
+
+export async function saveCompany(formData: FormData) {
   const user = await requireEditor();
   const raw = Object.fromEntries(formData) as Record<string, string>;
-  const p = accountSchema.parse(raw);
+  const p = companySchema.parse(raw);
   const data = {
     name: p.name.trim(),
-    type: p.type,
-    industry: orNull(p.industry),
-    website: orNull(p.website),
+    relationshipType: p.relationshipType,
+    source: orNullEnum(p.source, COMPANY_SOURCES),
+    size: orNullEnum(p.size, COMPANY_SIZES),
+    domains: orNull(p.domains),
+    categories: orNull(p.categories),
+    primaryLocation: orNull(p.primaryLocation),
+    teamSize: orNullInt(p.teamSize),
+    description: orNull(p.description),
     email: orNull(p.email),
     phone: orNull(p.phone),
-    address: orNull(p.address),
     gstin: orNull(p.gstin),
-    notes: orNull(p.notes),
     ownerId: orNull(p.ownerId),
   };
 
   if (p.id) {
-    await prisma.account.update({ where: { id: p.id }, data });
-    await audit(user.id, "UPDATE", "Account", p.id, data.name);
-    revalidatePath("/crm/accounts");
-    revalidatePath(`/crm/accounts/${p.id}`);
-    redirect(`/crm/accounts/${p.id}`);
+    await prisma.company.update({ where: { id: p.id }, data });
+    await audit(user.id, "UPDATE", "Company", p.id, data.name);
+    revalidatePath("/crm/companies");
+    revalidatePath(`/crm/companies/${p.id}`);
+    redirect(`/crm/companies/${p.id}`);
   }
-  const created = await prisma.account.create({ data: { ...data, createdById: user.id } });
-  await audit(user.id, "CREATE", "Account", created.id, data.name);
-  revalidatePath("/crm/accounts");
-  redirect(`/crm/accounts/${created.id}`);
+  const created = await prisma.company.create({ data: { ...data, createdById: user.id } });
+  await audit(user.id, "CREATE", "Company", created.id, data.name);
+  revalidatePath("/crm/companies");
+  redirect(`/crm/companies/${created.id}`);
 }
 
-export async function toggleAccountActive(id: string) {
+export async function toggleCompanyActive(id: string) {
   const user = await requireEditor();
-  const a = await prisma.account.findUnique({ where: { id } });
-  if (!a) return;
-  await prisma.account.update({ where: { id }, data: { active: !a.active } });
-  await audit(user.id, a.active ? "DEACTIVATE" : "ACTIVATE", "Account", id, a.name);
-  revalidatePath("/crm/accounts");
-  revalidatePath(`/crm/accounts/${id}`);
+  const c = await prisma.company.findUnique({ where: { id } });
+  if (!c) return;
+  await prisma.company.update({ where: { id }, data: { active: !c.active } });
+  await audit(user.id, c.active ? "DEACTIVATE" : "ACTIVATE", "Company", id, c.name);
+  revalidatePath("/crm/companies");
+  revalidatePath(`/crm/companies/${id}`);
 }
 
-export async function deleteAccount(id: string) {
+export async function deleteCompany(id: string) {
   const user = await requireEditor();
-  const a = await prisma.account.findUnique({ where: { id } });
-  if (!a) return;
-  // Contacts and deals are kept (their accountId is set to null via the schema's
-  // onDelete: SetNull); activities and documents owned by the account cascade.
-  await prisma.account.delete({ where: { id } });
-  await audit(user.id, "DELETE", "Account", id, a.name);
-  revalidatePath("/crm/accounts");
-  redirect("/crm/accounts");
+  const c = await prisma.company.findUnique({ where: { id } });
+  if (!c) return;
+  // Contacts and deals are kept (their companyId is set to null via the schema's
+  // onDelete: SetNull); activities and documents owned by the company cascade.
+  await prisma.company.delete({ where: { id } });
+  await audit(user.id, "DELETE", "Company", id, c.name);
+  revalidatePath("/crm/companies");
+  redirect("/crm/companies");
 }
 
 // ===========================================================================
@@ -114,7 +139,7 @@ export async function deleteAccount(id: string) {
 // ===========================================================================
 const contactSchema = z.object({
   id: z.string().optional(),
-  accountId: z.string().optional(),
+  companyId: z.string().optional(),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().optional(),
   email: z.string().optional(),
@@ -130,7 +155,7 @@ export async function saveContact(formData: FormData) {
   const p = contactSchema.parse(raw);
   const isPrimary = raw.isPrimary === "on" || raw.isPrimary === "true";
   const data = {
-    accountId: orNull(p.accountId),
+    companyId: orNull(p.companyId),
     firstName: p.firstName.trim(),
     lastName: (p.lastName ?? "").trim(),
     email: orNull(p.email),
@@ -147,45 +172,54 @@ export async function saveContact(formData: FormData) {
     await audit(user.id, "UPDATE", "Contact", p.id, label);
     revalidatePath("/crm/contacts");
     revalidatePath(`/crm/contacts/${p.id}`);
-    if (data.accountId) revalidatePath(`/crm/accounts/${data.accountId}`);
+    if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
     redirect(`/crm/contacts/${p.id}`);
   }
   const created = await prisma.contact.create({ data: { ...data, createdById: user.id } });
   await audit(user.id, "CREATE", "Contact", created.id, label);
   revalidatePath("/crm/contacts");
-  if (data.accountId) revalidatePath(`/crm/accounts/${data.accountId}`);
+  if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
   redirect(`/crm/contacts/${created.id}`);
 }
 
 // Inline single-field edit from the record page. Whitelisted fields only.
-const EDITABLE_ACCOUNT_FIELDS = [
-  "name", "type", "industry", "website", "email", "phone", "address", "gstin", "notes", "ownerId",
+const EDITABLE_COMPANY_FIELDS = [
+  "name", "relationshipType", "source", "size", "domains", "categories",
+  "primaryLocation", "teamSize", "description", "email", "phone", "gstin", "ownerId",
 ] as const;
 
-export async function updateAccountField(id: string, field: string, value: string) {
+export async function updateCompanyField(id: string, field: string, value: string) {
   const user = await requireEditor();
-  if (!(EDITABLE_ACCOUNT_FIELDS as readonly string[]).includes(field)) {
+  if (!(EDITABLE_COMPANY_FIELDS as readonly string[]).includes(field)) {
     return { error: "That field can't be edited." };
   }
   const trimmed = value.trim();
-  if (field === "name") {
-    if (!trimmed) return { error: "Name can't be empty." };
+  if (field === "name" && !trimmed) return { error: "Name can't be empty." };
+  if (field === "relationshipType" && !(RELATIONSHIP_TYPES as readonly string[]).includes(trimmed)) {
+    return { error: "Invalid relationship type." };
   }
-  if (field === "type" && !(ACCOUNT_TYPES as readonly string[]).includes(trimmed)) {
-    return { error: "Invalid type." };
+  if (field === "source" && trimmed && !(COMPANY_SOURCES as readonly string[]).includes(trimmed)) {
+    return { error: "Invalid source." };
   }
-  // Required text fields keep their value; everything else empties to null.
-  const stored: string | null = field === "name" || field === "type" ? trimmed : trimmed === "" ? null : trimmed;
+  if (field === "size" && trimmed && !(COMPANY_SIZES as readonly string[]).includes(trimmed)) {
+    return { error: "Invalid size." };
+  }
+
+  let stored: string | number | null;
+  if (field === "name" || field === "relationshipType") stored = trimmed;
+  else if (field === "teamSize") stored = orNullInt(trimmed);
+  else stored = trimmed === "" ? null : trimmed;
+
   const data: Record<string, unknown> = { [field]: stored };
-  await prisma.account.update({ where: { id }, data });
-  await audit(user.id, "UPDATE", "Account", id, field);
-  revalidatePath(`/crm/accounts/${id}`);
-  revalidatePath("/crm/accounts");
+  await prisma.company.update({ where: { id }, data });
+  await audit(user.id, "UPDATE", "Company", id, field);
+  revalidatePath(`/crm/companies/${id}`);
+  revalidatePath("/crm/companies");
   return { ok: true };
 }
 
 const EDITABLE_CONTACT_FIELDS = [
-  "firstName", "lastName", "title", "email", "phone", "accountId", "ownerId", "notes", "isPrimary",
+  "firstName", "lastName", "title", "email", "phone", "companyId", "ownerId", "notes", "isPrimary",
 ] as const;
 
 export async function updateContactField(id: string, field: string, value: string) {
@@ -202,13 +236,13 @@ export async function updateContactField(id: string, field: string, value: strin
   else stored = trimmed === "" ? null : trimmed;
 
   const data: Record<string, unknown> = { [field]: stored };
-  const before = await prisma.contact.findUnique({ where: { id }, select: { accountId: true } });
+  const before = await prisma.contact.findUnique({ where: { id }, select: { companyId: true } });
   await prisma.contact.update({ where: { id }, data });
   await audit(user.id, "UPDATE", "Contact", id, field);
   revalidatePath(`/crm/contacts/${id}`);
   revalidatePath("/crm/contacts");
-  if (before?.accountId) revalidatePath(`/crm/accounts/${before.accountId}`);
-  if (field === "accountId" && stored) revalidatePath(`/crm/accounts/${stored as string}`);
+  if (before?.companyId) revalidatePath(`/crm/companies/${before.companyId}`);
+  if (field === "companyId" && stored) revalidatePath(`/crm/companies/${stored as string}`);
   return { ok: true };
 }
 
@@ -216,7 +250,7 @@ export async function updateContactField(id: string, field: string, value: strin
 // Activities (notes / tasks / logged interactions) — the record timeline
 // ===========================================================================
 export async function addActivity(input: {
-  accountId?: string;
+  companyId?: string;
   contactId?: string;
   dealId?: string;
   type: string;
@@ -237,7 +271,7 @@ export async function addActivity(input: {
       status: isTask ? "OPEN" : "DONE",
       dueDate: isTask && input.dueDate ? new Date(input.dueDate) : null,
       occurredAt: new Date(),
-      accountId: orNull(input.accountId),
+      companyId: orNull(input.companyId),
       contactId: orNull(input.contactId),
       dealId: orNull(input.dealId),
       ownerId: user.id,
@@ -245,7 +279,7 @@ export async function addActivity(input: {
     },
   });
   await audit(user.id, "CREATE", "Activity", undefined, `${type}: ${subject.slice(0, 60)}`);
-  if (input.accountId) revalidatePath(`/crm/accounts/${input.accountId}`);
+  if (input.companyId) revalidatePath(`/crm/companies/${input.companyId}`);
   if (input.contactId) revalidatePath(`/crm/contacts/${input.contactId}`);
   if (input.dealId) revalidatePath(`/crm/deals/${input.dealId}`);
   return { ok: true };
@@ -261,7 +295,7 @@ export async function toggleActivityDone(id: string) {
     data: { status: done ? "DONE" : "OPEN", completedAt: done ? new Date() : null },
   });
   await audit(user.id, "UPDATE", "Activity", id, done ? "completed" : "reopened");
-  if (a.accountId) revalidatePath(`/crm/accounts/${a.accountId}`);
+  if (a.companyId) revalidatePath(`/crm/companies/${a.companyId}`);
   if (a.contactId) revalidatePath(`/crm/contacts/${a.contactId}`);
   if (a.dealId) revalidatePath(`/crm/deals/${a.dealId}`);
 }
@@ -272,7 +306,7 @@ export async function deleteActivity(id: string) {
   if (!a) return;
   await prisma.activity.delete({ where: { id } });
   await audit(user.id, "DELETE", "Activity", id, a.subject.slice(0, 60));
-  if (a.accountId) revalidatePath(`/crm/accounts/${a.accountId}`);
+  if (a.companyId) revalidatePath(`/crm/companies/${a.companyId}`);
   if (a.contactId) revalidatePath(`/crm/contacts/${a.contactId}`);
   if (a.dealId) revalidatePath(`/crm/deals/${a.dealId}`);
 }
@@ -284,6 +318,6 @@ export async function deleteContact(id: string) {
   await prisma.contact.delete({ where: { id } });
   await audit(user.id, "DELETE", "Contact", id, `${c.firstName} ${c.lastName}`.trim());
   revalidatePath("/crm/contacts");
-  if (c.accountId) revalidatePath(`/crm/accounts/${c.accountId}`);
+  if (c.companyId) revalidatePath(`/crm/companies/${c.companyId}`);
   redirect("/crm/contacts");
 }

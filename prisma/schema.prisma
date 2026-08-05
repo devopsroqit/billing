@@ -110,12 +110,12 @@ model PaymentEntry {
 model Document {
   id           String   @id @default(cuid())
   // A document belongs to exactly one owner: a payment entry, a purchase, a
-  // device, or a CRM record (account / contact / deal). All FKs are optional;
+  // device, or a CRM record (company / contact / deal). All FKs are optional;
   // whichever is set identifies the owner.
   entryId      String?
   purchaseId   String?
   deviceId     String?
-  accountId    String?
+  companyId    String?
   contactId    String?
   dealId       String?
   kind         String   @default("FILE") // FILE | LINK
@@ -131,7 +131,7 @@ model Document {
   entry      PaymentEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
   purchase   Purchase?     @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   device     Device?       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  account    Account?      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   contact    Contact?      @relation(fields: [contactId], references: [id], onDelete: Cascade)
   deal       Deal?         @relation(fields: [dealId], references: [id], onDelete: Cascade)
   uploadedBy User?         @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
@@ -236,7 +236,7 @@ model Device {
   id           String    @id @default(cuid())
   purchaseId   String?
   supplierId   String?
-  accountId    String? // CRM account this unit is deployed to (optional)
+  companyId    String? // CRM company this unit is deployed to (optional)
   category     String    @default("Device") // free text: GPS Tracker, Gateway, Sensor…
   make         String?
   model        String?
@@ -268,13 +268,13 @@ model Device {
 
   purchase    Purchase?    @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
   supplier    Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  account     Account?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
   deployments Deployment[]
   documents   Document[]
 
   @@index([status])
   @@index([imei])
-  @@index([accountId])
+  @@index([companyId])
 }
 
 // A movement/assignment event in a device's history.
@@ -297,31 +297,36 @@ model Deployment {
 }
 
 // ===========================================================================
-// CRM — accounts (companies/customers), the people at them (contacts), the
-// sales opportunities (deals), and a unified activity/timeline model (notes,
+// CRM — companies (customers/partners/vendors), the people at them (contacts),
+// the sales opportunities (deals), and a unified activity/timeline model (notes,
 // logged interactions, and tasks). Owner/creator are stored as bare User ids
 // (like Purchase.createdById) and resolved to names in the UI, so the User
 // model stays lean. Enum-like fields are strings; allowed values live in
 // src/lib/constants.ts.
 // ===========================================================================
 
-// A company the business sells to or partners with.
-model Account {
-  id          String   @id @default(cuid())
-  name        String
-  type        String   @default("PROSPECT") // CUSTOMER | PROSPECT | PARTNER | OTHER
-  industry    String?
-  website     String?
-  email       String?
-  phone       String?
-  address     String?
-  gstin       String?
-  notes       String?
-  active      Boolean  @default(true)
-  ownerId     String? // User.id of the account owner
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// A company the business sells to, partners with, or buys from. The internal
+// team member responsible for it is the "account owner" (ownerId).
+model Company {
+  id               String   @id @default(cuid())
+  name             String
+  domains          String? // comma-separated web/email domains (e.g. "tesla.com, tesla.in")
+  description      String?
+  relationshipType String   @default("PROSPECT") // PROSPECT | CUSTOMER | RELATED_PARTY | PARTNER | VENDOR
+  source           String? // OUTBOUND | INBOUND | PARTNER_REFERRAL | GROUP_REFERRAL | EXISTING_RELATIONSHIP
+  size             String? // SMB | MID_MARKET | ENTERPRISE
+  categories       String? // comma-separated free-form tags
+  primaryLocation  String?
+  teamSize         Int? // customer's employee headcount
+  // Optional secondary details, inline-editable on the record.
+  email            String?
+  phone            String?
+  gstin            String?
+  active           Boolean  @default(true)
+  ownerId          String? // User.id of the account owner (assigned internal member)
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   contacts   Contact[]
   deals      Deal[]
@@ -329,38 +334,39 @@ model Account {
   documents  Document[]
   devices    Device[]
 
-  @@index([type])
+  @@index([relationshipType])
+  @@index([ownerId])
 }
 
-// A person, usually at an Account. Can exist without an account (SetNull).
+// A person, usually at a Company. Can exist without a company (SetNull).
 model Contact {
   id          String   @id @default(cuid())
-  accountId   String?
+  companyId   String?
   firstName   String
   lastName    String   @default("")
   email       String?
   phone       String?
   title       String? // job title / role
-  isPrimary   Boolean  @default(false) // primary contact for the account
+  isPrimary   Boolean  @default(false) // primary contact for the company
   notes       String?
   ownerId     String?
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  account        Account?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  company        Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
   dealsAsPrimary Deal[]     @relation("DealPrimaryContact")
   activities     Activity[]
   documents      Document[]
 
-  @@index([accountId])
+  @@index([companyId])
 }
 
 // A sales opportunity moving through pipeline stages to won/lost.
 model Deal {
   id                String    @id @default(cuid())
   title             String
-  accountId         String?
+  companyId         String?
   primaryContactId  String?
   stage             String    @default("NEW") // NEW | QUALIFIED | PROPOSAL | NEGOTIATION | WON | LOST
   amountMinor       Int       @default(0) // deal value in minor units
@@ -374,18 +380,18 @@ model Deal {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  account        Account?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  company        Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
   primaryContact Contact?   @relation("DealPrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
   activities     Activity[]
   documents      Document[]
 
   @@index([stage])
-  @@index([accountId])
+  @@index([companyId])
 }
 
 // A unified timeline record: a free-form note, a logged interaction (call /
 // email / meeting), or a task. `status` (OPEN|DONE) and `dueDate` are only
-// meaningful for TASK. Anchored to an account and/or a deal (Cascade so they
+// meaningful for TASK. Anchored to a company and/or a deal (Cascade so they
 // are cleaned up with their parent); a contact link is SetNull.
 model Activity {
   id          String    @id @default(cuid())
@@ -396,7 +402,7 @@ model Activity {
   dueDate     DateTime?
   occurredAt  DateTime  @default(now())
   completedAt DateTime?
-  accountId   String?
+  companyId   String?
   contactId   String?
   dealId      String?
   ownerId     String?
@@ -404,11 +410,11 @@ model Activity {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  account Account? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
-  @@index([accountId])
+  @@index([companyId])
   @@index([dealId])
   @@index([dueDate])
   @@index([status])

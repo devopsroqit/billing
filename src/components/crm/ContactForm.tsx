@@ -2,7 +2,7 @@ import { saveContact } from "@/app/crm-actions";
 
 type ContactData = {
   id: string;
-  accountId: string | null;
+  companyId: string | null;
   firstName: string;
   lastName: string;
   email: string | null;
@@ -17,16 +17,16 @@ type Option = { id: string; name: string };
 
 export function ContactForm({
   contact,
-  accounts,
+  companies,
   users,
-  presetAccountId,
+  presetCompanyId,
 }: {
   contact?: ContactData;
-  accounts: Option[];
+  companies: Option[];
   users: Option[];
-  presetAccountId?: string;
+  presetCompanyId?: string;
 }) {
-  const accountId = contact?.accountId ?? presetAccountId ?? "";
+  const companyId = contact?.companyId ?? presetCompanyId ?? "";
   return (
     <form action={saveContact} className="card space-y-5 p-6">
       {contact && <input type="hidden" name="id" value={contact.id} />}
@@ -41,11 +41,11 @@ export function ContactForm({
           <input className="input" name="lastName" defaultValue={contact?.lastName ?? ""} placeholder="Kumar" />
         </div>
         <div>
-          <label className="label">Account</label>
-          <select className="input" name="accountId" defaultValue={accountId}>
-            <option value="">— No account —</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
+          <label className="label">Company</label>
+          <select className="input" name="companyId" defaultValue={companyId}>
+            <option value="">— No company —</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
@@ -78,7 +78,7 @@ export function ContactForm({
               defaultChecked={contact?.isPrimary ?? false}
               className="h-4 w-4 rounded border-border"
             />
-            Primary contact for the account
+            Primary contact for the company
           </label>
         </div>
         <div className="sm:col-span-2">

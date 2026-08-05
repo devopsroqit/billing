@@ -23,7 +23,7 @@ export type ContactData = {
   phone: string | null;
   notes: string | null;
   isPrimary: boolean;
-  accountId: string | null;
+  companyId: string | null;
   ownerId: string | null;
 };
 
@@ -32,13 +32,13 @@ type Tab = (typeof TABS)[number];
 
 export function ContactRecordView({
   contact,
-  accounts,
+  companies,
   users,
   activities,
   editable,
 }: {
   contact: ContactData;
-  accounts: Option[];
+  companies: Option[];
   users: Option[];
   activities: ActivityItem[];
   editable: boolean;
@@ -48,14 +48,14 @@ export function ContactRecordView({
 
   const fullName = `${contact.firstName} ${contact.lastName}`.trim();
   const initials = fullName.slice(0, 2).toUpperCase();
-  const accountName = contact.accountId ? accounts.find((a) => a.id === contact.accountId)?.name ?? "—" : null;
+  const companyName = contact.companyId ? companies.find((c) => c.id === contact.companyId)?.name ?? "—" : null;
   const userName = (id: string | null) => (id ? users.find((u) => u.id === id)?.name ?? "—" : null);
   const save = (field: string) => (value: string) => updateContactField(contact.id, field, value);
 
   const notes = activities.filter((a) => a.type === "NOTE");
   const tasks = activities.filter((a) => a.type === "TASK");
 
-  const anchor = { contactId: contact.id, accountId: contact.accountId ?? undefined };
+  const anchor = { contactId: contact.id, companyId: contact.companyId ?? undefined };
 
   return (
     <div className="lg:flex lg:gap-6">
@@ -147,15 +147,15 @@ export function ContactRecordView({
           <Row label="Job title"><InlineField value={contact.title ?? ""} placeholder="Add job title…" editable={editable} onSave={save("title")} /></Row>
           <Row label="Email"><InlineField value={contact.email ?? ""} placeholder="Add email…" kind="email" editable={editable} onSave={save("email")} /></Row>
           <Row label="Phone"><InlineField value={contact.phone ?? ""} placeholder="Add phone…" kind="tel" editable={editable} onSave={save("phone")} /></Row>
-          <Row label="Account">
+          <Row label="Company">
             <InlineField
-              value={contact.accountId ?? ""}
+              value={contact.companyId ?? ""}
               kind="select"
-              placeholder="Link account…"
+              placeholder="Link company…"
               editable={editable}
-              options={[{ value: "", label: "— No account —" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
-              onSave={save("accountId")}
-              render={() => (accountName ? <Link href={`/crm/accounts/${contact.accountId}`} className="text-brand-600 hover:underline">{accountName}</Link> : <>— No account —</>)}
+              options={[{ value: "", label: "— No company —" }, ...companies.map((c) => ({ value: c.id, label: c.name }))]}
+              onSave={save("companyId")}
+              render={() => (companyName ? <Link href={`/crm/companies/${contact.companyId}`} className="text-brand-600 hover:underline">{companyName}</Link> : <>— No company —</>)}
             />
           </Row>
           <Row label="Owner">

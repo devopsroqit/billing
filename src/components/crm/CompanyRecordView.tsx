@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { StatusBadge } from "@/components/ui";
 import { InlineField } from "@/components/crm/InlineField";
 import { Feed, NoteComposer, TaskComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
-import { ACCOUNT_TYPES, ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/constants";
 import {
-  updateAccountField,
+  RELATIONSHIP_TYPES,
+  RELATIONSHIP_TYPE_LABELS,
+  COMPANY_SOURCES,
+  COMPANY_SOURCE_LABELS,
+  COMPANY_SIZES,
+  COMPANY_SIZE_LABELS,
+  type RelationshipType,
+  type CompanySource,
+  type CompanySize,
+} from "@/lib/constants";
+import {
+  updateCompanyField,
   addActivity,
   toggleActivityDone,
   deleteActivity,
@@ -19,32 +29,47 @@ export type { ActivityItem };
 type ContactItem = { id: string; name: string; title: string | null; isPrimary: boolean; email: string | null; phone: string | null };
 type DealItem = { id: string; title: string; stage: string; stageLabel: string; amountLabel: string };
 type UserOpt = { id: string; name: string };
-export type AccountData = {
+export type CompanyData = {
   id: string;
   name: string;
-  type: string;
-  industry: string | null;
-  website: string | null;
+  relationshipType: string;
+  source: string | null;
+  size: string | null;
+  domains: string | null;
+  categories: string | null;
+  primaryLocation: string | null;
+  teamSize: number | null;
+  description: string | null;
   email: string | null;
   phone: string | null;
-  address: string | null;
   gstin: string | null;
-  notes: string | null;
   ownerId: string | null;
 };
 
 const TABS = ["Activity", "Notes", "Tasks", "Contacts", "Deals"] as const;
 type Tab = (typeof TABS)[number];
 
-export function AccountRecordView({
-  account,
+// First domain → an https URL (for the website affordance).
+function firstDomainUrl(domains: string | null): string | null {
+  const first = (domains ?? "").split(",")[0]?.trim();
+  if (!first) return null;
+  return /^https?:\/\//i.test(first) ? first : `https://${first}`;
+}
+
+// Split comma-separated tags into a clean list.
+function tags(value: string | null): string[] {
+  return (value ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+}
+
+export function CompanyRecordView({
+  company,
   users,
   activities,
   contacts,
   deals,
   editable,
 }: {
-  account: AccountData;
+  company: CompanyData;
   users: UserOpt[];
   activities: ActivityItem[];
   contacts: ContactItem[];
@@ -54,9 +79,10 @@ export function AccountRecordView({
   const [tab, setTab] = useState<Tab>("Activity");
   const router = useRouter();
 
-  const initials = account.name.trim().slice(0, 2).toUpperCase();
+  const initials = company.name.trim().slice(0, 2).toUpperCase();
   const userName = (id: string | null) => (id ? users.find((u) => u.id === id)?.name ?? "—" : null);
-  const save = (field: string) => (value: string) => updateAccountField(account.id, field, value);
+  const save = (field: string) => (value: string) => updateCompanyField(company.id, field, value);
+  const website = firstDomainUrl(company.domains);
 
   const notes = activities.filter((a) => a.type === "NOTE");
   const tasks = activities.filter((a) => a.type === "TASK");
@@ -66,9 +92,9 @@ export function AccountRecordView({
       {/* MAIN — activity / tabs */}
       <div className="min-w-0 flex-1">
         <div className="mb-3 flex items-center gap-2 text-sm text-muted">
-          <Link href="/crm/accounts" className="hover:underline">Accounts</Link>
+          <Link href="/crm/companies" className="hover:underline">Companies</Link>
           <span>/</span>
-          <span className="text-fg">{account.name}</span>
+          <span className="text-fg">{company.name}</span>
         </div>
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
@@ -93,7 +119,7 @@ export function AccountRecordView({
             {editable && (
               <NoteComposer
                 onAdd={(text) =>
-                  addActivity({ accountId: account.id, type: "NOTE", subject: text }).then((r) => {
+                  addActivity({ companyId: company.id, type: "NOTE", subject: text }).then((r) => {
                     if (!r || !("error" in r) || !r.error) router.refresh();
                     return r;
                   })
@@ -114,7 +140,7 @@ export function AccountRecordView({
             {editable && (
               <TaskComposer
                 onAdd={(subject, dueDate) =>
-                  addActivity({ accountId: account.id, type: "TASK", subject, dueDate }).then((r) => {
+                  addActivity({ companyId: company.id, type: "TASK", subject, dueDate }).then((r) => {
                     if (!r || !("error" in r) || !r.error) router.refresh();
                     return r;
                   })
@@ -133,7 +159,7 @@ export function AccountRecordView({
         {tab === "Contacts" && (
           <div className="space-y-3">
             {editable && (
-              <Link href={`/crm/contacts/new?accountId=${account.id}`} className="btn-primary inline-flex">＋ Add contact</Link>
+              <Link href={`/crm/contacts/new?companyId=${company.id}`} className="btn-primary inline-flex">＋ Add contact</Link>
             )}
             {contacts.length === 0 ? (
               <p className="card p-4 text-sm text-muted">No contacts yet.</p>
@@ -183,31 +209,31 @@ export function AccountRecordView({
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-base font-semibold text-fg">
-              <InlineField value={account.name} placeholder="Account name" editable={editable} onSave={save("name")} />
+              <InlineField value={company.name} placeholder="Company name" editable={editable} onSave={save("name")} />
             </div>
             <div className="mt-1 flex items-center gap-2 text-muted">
-              {account.phone && <a href={`tel:${account.phone}`} title="Call" className="rounded p-1 hover:bg-surface-2 hover:text-brand-600"><Icon name="phone" className="h-4 w-4" /></a>}
-              {account.email && <a href={`mailto:${account.email}`} title="Email" className="rounded p-1 hover:bg-surface-2 hover:text-brand-600"><Icon name="mail" className="h-4 w-4" /></a>}
-              {account.website && <a href={account.website} target="_blank" rel="noreferrer" title="Website" className="rounded p-1 hover:bg-surface-2 hover:text-brand-600"><Icon name="globe" className="h-4 w-4" /></a>}
+              {company.phone && <a href={`tel:${company.phone}`} title="Call" className="rounded p-1 hover:bg-surface-2 hover:text-brand-600"><Icon name="phone" className="h-4 w-4" /></a>}
+              {company.email && <a href={`mailto:${company.email}`} title="Email" className="rounded p-1 hover:bg-surface-2 hover:text-brand-600"><Icon name="mail" className="h-4 w-4" /></a>}
+              {website && <a href={website} target="_blank" rel="noreferrer" title="Website" className="rounded p-1 hover:bg-surface-2 hover:text-brand-600"><Icon name="globe" className="h-4 w-4" /></a>}
             </div>
           </div>
         </div>
 
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">Details</p>
         <dl className="space-y-3">
-          <Row label="Type">
+          <Row label="Relationship">
             <InlineField
-              value={account.type}
+              value={company.relationshipType}
               kind="select"
               editable={editable}
-              options={ACCOUNT_TYPES.map((t) => ({ value: t, label: ACCOUNT_TYPE_LABELS[t] }))}
-              onSave={save("type")}
-              render={(v) => <StatusBadge status={v} label={ACCOUNT_TYPE_LABELS[v as AccountType] ?? v} />}
+              options={RELATIONSHIP_TYPES.map((t) => ({ value: t, label: RELATIONSHIP_TYPE_LABELS[t] }))}
+              onSave={save("relationshipType")}
+              render={(v) => <StatusBadge status={v} label={RELATIONSHIP_TYPE_LABELS[v as RelationshipType] ?? v} />}
             />
           </Row>
           <Row label="Owner">
             <InlineField
-              value={account.ownerId ?? ""}
+              value={company.ownerId ?? ""}
               kind="select"
               placeholder="Assign owner…"
               editable={editable}
@@ -216,13 +242,64 @@ export function AccountRecordView({
               render={(v) => <>{userName(v) ?? "Unassigned"}</>}
             />
           </Row>
-          <Row label="Website"><InlineField value={account.website ?? ""} placeholder="Add website…" kind="text" editable={editable} onSave={save("website")} /></Row>
-          <Row label="Industry"><InlineField value={account.industry ?? ""} placeholder="Add industry…" editable={editable} onSave={save("industry")} /></Row>
-          <Row label="Email"><InlineField value={account.email ?? ""} placeholder="Add email…" kind="email" editable={editable} onSave={save("email")} /></Row>
-          <Row label="Phone"><InlineField value={account.phone ?? ""} placeholder="Add phone…" kind="tel" editable={editable} onSave={save("phone")} /></Row>
-          <Row label="GSTIN"><InlineField value={account.gstin ?? ""} placeholder="Add GSTIN…" editable={editable} onSave={save("gstin")} /></Row>
-          <Row label="Address"><InlineField value={account.address ?? ""} placeholder="Add address…" kind="textarea" editable={editable} onSave={save("address")} /></Row>
-          <Row label="Notes"><InlineField value={account.notes ?? ""} placeholder="Add notes…" kind="textarea" editable={editable} onSave={save("notes")} /></Row>
+          <Row label="Source">
+            <InlineField
+              value={company.source ?? ""}
+              kind="select"
+              placeholder="Add source…"
+              editable={editable}
+              options={[{ value: "", label: "—" }, ...COMPANY_SOURCES.map((s) => ({ value: s, label: COMPANY_SOURCE_LABELS[s] }))]}
+              onSave={save("source")}
+              render={(v) => <>{v ? COMPANY_SOURCE_LABELS[v as CompanySource] ?? v : "—"}</>}
+            />
+          </Row>
+          <Row label="Size">
+            <InlineField
+              value={company.size ?? ""}
+              kind="select"
+              placeholder="Add size…"
+              editable={editable}
+              options={[{ value: "", label: "—" }, ...COMPANY_SIZES.map((s) => ({ value: s, label: COMPANY_SIZE_LABELS[s] }))]}
+              onSave={save("size")}
+              render={(v) => <>{v ? COMPANY_SIZE_LABELS[v as CompanySize] ?? v : "—"}</>}
+            />
+          </Row>
+          <Row label="Team size"><InlineField value={company.teamSize != null ? String(company.teamSize) : ""} placeholder="Add headcount…" editable={editable} onSave={save("teamSize")} /></Row>
+          <Row label="Domains">
+            <InlineField
+              value={company.domains ?? ""}
+              placeholder="Add domains…"
+              editable={editable}
+              onSave={save("domains")}
+              render={(v) => (
+                <span className="flex flex-wrap gap-x-2 gap-y-1">
+                  {tags(v).map((d) => (
+                    <a key={d} href={/^https?:\/\//i.test(d) ? d : `https://${d}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">{d}</a>
+                  ))}
+                </span>
+              )}
+            />
+          </Row>
+          <Row label="Categories">
+            <InlineField
+              value={company.categories ?? ""}
+              placeholder="Add categories…"
+              editable={editable}
+              onSave={save("categories")}
+              render={(v) => (
+                <span className="flex flex-wrap gap-1">
+                  {tags(v).map((t) => (
+                    <span key={t} className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">{t}</span>
+                  ))}
+                </span>
+              )}
+            />
+          </Row>
+          <Row label="Location"><InlineField value={company.primaryLocation ?? ""} placeholder="Add location…" editable={editable} onSave={save("primaryLocation")} /></Row>
+          <Row label="Email"><InlineField value={company.email ?? ""} placeholder="Add email…" kind="email" editable={editable} onSave={save("email")} /></Row>
+          <Row label="Phone"><InlineField value={company.phone ?? ""} placeholder="Add phone…" kind="tel" editable={editable} onSave={save("phone")} /></Row>
+          <Row label="GSTIN"><InlineField value={company.gstin ?? ""} placeholder="Add GSTIN…" editable={editable} onSave={save("gstin")} /></Row>
+          <Row label="Description"><InlineField value={company.description ?? ""} placeholder="Add description…" kind="textarea" editable={editable} onSave={save("description")} /></Row>
         </dl>
       </aside>
     </div>

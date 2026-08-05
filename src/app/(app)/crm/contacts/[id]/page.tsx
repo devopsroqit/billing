@@ -23,8 +23,8 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
   });
   if (!contact) notFound();
 
-  const [accounts, users] = await Promise.all([
-    prisma.account.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  const [companies, users] = await Promise.all([
+    prisma.company.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -64,10 +64,10 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
           phone: contact.phone,
           notes: contact.notes,
           isPrimary: contact.isPrimary,
-          accountId: contact.accountId,
+          companyId: contact.companyId,
           ownerId: contact.ownerId,
         }}
-        accounts={accounts}
+        companies={companies}
         users={users}
         activities={activities}
         editable={editable}

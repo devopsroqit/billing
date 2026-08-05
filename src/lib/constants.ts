@@ -111,13 +111,47 @@ export const DEVICE_CATEGORY_SUGGESTIONS = [
 ] as const;
 
 // --- CRM ---------------------------------------------------------------------
-export const ACCOUNT_TYPES = ["CUSTOMER", "PROSPECT", "PARTNER", "OTHER"] as const;
-export type AccountType = (typeof ACCOUNT_TYPES)[number];
-export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  CUSTOMER: "Customer",
+// How a company relates to the business. Ordered roughly by sales lifecycle.
+export const RELATIONSHIP_TYPES = [
+  "PROSPECT",
+  "CUSTOMER",
+  "RELATED_PARTY",
+  "PARTNER",
+  "VENDOR",
+] as const;
+export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];
+export const RELATIONSHIP_TYPE_LABELS: Record<RelationshipType, string> = {
   PROSPECT: "Prospect",
+  CUSTOMER: "Customer",
+  RELATED_PARTY: "Related Party",
   PARTNER: "Partner",
-  OTHER: "Other",
+  VENDOR: "Vendor",
+};
+
+// Where a company came from — how the relationship originated.
+export const COMPANY_SOURCES = [
+  "OUTBOUND",
+  "INBOUND",
+  "PARTNER_REFERRAL",
+  "GROUP_REFERRAL",
+  "EXISTING_RELATIONSHIP",
+] as const;
+export type CompanySource = (typeof COMPANY_SOURCES)[number];
+export const COMPANY_SOURCE_LABELS: Record<CompanySource, string> = {
+  OUTBOUND: "Outbound",
+  INBOUND: "Inbound",
+  PARTNER_REFERRAL: "Partner Referral",
+  GROUP_REFERRAL: "Group Referral",
+  EXISTING_RELATIONSHIP: "Existing Relationship",
+};
+
+// A coarse size band for the company (headcount lives on Company.teamSize).
+export const COMPANY_SIZES = ["SMB", "MID_MARKET", "ENTERPRISE"] as const;
+export type CompanySize = (typeof COMPANY_SIZES)[number];
+export const COMPANY_SIZE_LABELS: Record<CompanySize, string> = {
+  SMB: "SMB",
+  MID_MARKET: "Mid-market",
+  ENTERPRISE: "Enterprise",
 };
 
 // Deal pipeline stages, in order. WON/LOST are terminal (a deal is closed).
@@ -215,10 +249,12 @@ export const STATUS_BADGE: Record<string, string> = {
   NEGOTIATION: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   WON: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   LOST: "bg-red-500/15 text-red-600 dark:text-red-400",
-  // CRM — account types
+  // CRM — company relationship types
   CUSTOMER: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   PROSPECT: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   PARTNER: "bg-brand-500/15 text-brand-600 dark:text-brand-500",
+  RELATED_PARTY: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+  VENDOR: "bg-slate-500/15 text-muted",
   // CRM — task status
   OPEN: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   DONE: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",

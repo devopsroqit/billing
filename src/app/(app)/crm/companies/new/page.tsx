@@ -2,13 +2,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEdit } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
-import { AccountForm } from "@/components/crm/AccountForm";
+import { CompanyForm } from "@/components/crm/CompanyForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewAccountPage() {
+export default async function NewCompanyPage() {
   const me = await getSessionUser();
-  if (!me || !canEdit(me.role)) redirect("/crm/accounts");
+  if (!me || !canEdit(me.role)) redirect("/crm/companies");
 
   const users = await prisma.user.findMany({
     where: { active: true },
@@ -18,8 +18,8 @@ export default async function NewAccountPage() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title="New account" subtitle="Add a company to the CRM." />
-      <AccountForm users={users} />
+      <PageHeader title="New company" subtitle="Add an organization to the CRM." />
+      <CompanyForm users={users} />
     </div>
   );
 }
