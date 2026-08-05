@@ -413,10 +413,12 @@ model Deal {
 // Each entry supports threaded comments (ActivityComment).
 model Activity {
   id            String   @id @default(cuid())
-  action        String // CREATED | UPDATED | DELETED | STAGE_CHANGED | OWNER_CHANGED | COMPLETED | REOPENED | INACTIVATED | REACTIVATED | CONTRIBUTOR_ADDED | CONTRIBUTOR_REMOVED | DOCUMENT_ADDED | DOCUMENT_REMOVED | NOTE_ADDED | COMMENTED
-  entityType    String // DEAL | COMPANY | CONTACT | TASK | NOTE | DOCUMENT | COLLABORATOR
+  // Defaults let `prisma db push` add these required columns to an existing
+  // (non-empty) Activity table; new rows always set them explicitly.
+  action        String   @default("UPDATED") // CREATED | UPDATED | DELETED | STAGE_CHANGED | OWNER_CHANGED | COMPLETED | REOPENED | INACTIVATED | REACTIVATED | CONTRIBUTOR_ADDED | CONTRIBUTOR_REMOVED | DOCUMENT_ADDED | DOCUMENT_REMOVED | NOTE_ADDED | COMMENTED
+  entityType    String   @default("DEAL") // DEAL | COMPANY | CONTACT | TASK | NOTE | DOCUMENT | COLLABORATOR
   entityId      String?
-  summary       String // human-readable one-line description
+  summary       String   @default("") // human-readable one-line description
   field         String?
   previousValue String?
   newValue      String?
