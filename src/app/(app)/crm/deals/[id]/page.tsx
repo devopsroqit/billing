@@ -6,6 +6,8 @@ import { getSessionUser, canEdit } from "@/lib/auth";
 import { DeleteButton } from "@/components/DeleteButton";
 import { DocumentForm, DeleteDocButton } from "@/components/DocumentForm";
 import { DealRecordView } from "@/components/crm/DealRecordView";
+import { toTaskItem } from "@/lib/tasks";
+import { isTaskClosed } from "@/lib/constants";
 import { deleteDeal, markDealInactive, markProjectCompleted } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +30,9 @@ export default async function DealDetailPage({ params }: { params: { id: string 
       documents: {
         orderBy: { createdAt: "desc" },
         include: { uploadedBy: { select: { name: true } } },
+      },
+      tasks: {
+        orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
       },
     },
   });
@@ -64,12 +69,16 @@ export default async function DealDetailPage({ params }: { params: { id: string 
     email: c.email,
   }));
 
-  // Earliest open task → the "Next due task" highlight.
-  const nextTask = deal.activities
-    .filter((a) => a.type === "TASK" && a.status === "OPEN")
-    .sort((a, b) => (a.dueDate?.getTime() ?? Infinity) - (b.dueDate?.getTime() ?? Infinity))[0];
+  const userNameMap = new Map(users.map((u) => [u.id, u.name]));
+  const userName = (id: string | null) => (id ? userNameMap.get(id) ?? "—" : null);
+  const taskItems = deal.tasks.map((t) => toTaskItem(t, userName));
+
+  // Earliest open (not closed) task with a due date → the "Next due task" highlight.
+  const nextTask = deal.tasks
+    .filter((t) => !isTaskClosed(t.status) && t.dueAt)
+    .sort((a, b) => (a.dueAt?.getTime() ?? Infinity) - (b.dueAt?.getTime() ?? Infinity))[0];
   const nextDueTaskLabel = nextTask
-    ? `${nextTask.subject}${nextTask.dueDate ? ` · due ${format(nextTask.dueDate, "d MMM yyyy")}` : ""}`
+    ? `${nextTask.title}${nextTask.dueAt ? ` · due ${format(nextTask.dueAt, "d MMM yyyy")}` : ""}`
     : null;
 
   const documentsSlot = (
@@ -146,6 +155,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
         companies={companies}
         users={users}
         activities={activities}
+        taskItems={taskItems}
         people={people}
         nextDueTaskLabel={nextDueTaskLabel}
         documentsSlot={documentsSlot}

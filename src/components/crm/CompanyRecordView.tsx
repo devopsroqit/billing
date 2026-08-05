@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { StatusBadge } from "@/components/ui";
 import { InlineField } from "@/components/crm/InlineField";
-import { Feed, NoteComposer, TaskComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { Feed, NoteComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
 import {
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_LABELS,
@@ -65,6 +66,7 @@ export function CompanyRecordView({
   company,
   users,
   activities,
+  taskItems,
   contacts,
   deals,
   editable,
@@ -72,6 +74,7 @@ export function CompanyRecordView({
   company: CompanyData;
   users: UserOpt[];
   activities: ActivityItem[];
+  taskItems: TaskItem[];
   contacts: ContactItem[];
   deals: DealItem[];
   editable: boolean;
@@ -85,7 +88,6 @@ export function CompanyRecordView({
   const website = firstDomainUrl(company.domains);
 
   const notes = activities.filter((a) => a.type === "NOTE");
-  const tasks = activities.filter((a) => a.type === "TASK");
 
   return (
     <div className="lg:flex lg:gap-6">
@@ -99,7 +101,7 @@ export function CompanyRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? notes.length : t === "Tasks" ? tasks.length : t === "Contacts" ? contacts.length : t === "Deals" ? deals.length : activities.length;
+            const count = t === "Notes" ? notes.length : t === "Tasks" ? taskItems.length : t === "Contacts" ? contacts.length : t === "Deals" ? deals.length : activities.length;
             return (
               <button
                 key={t}
@@ -136,24 +138,7 @@ export function CompanyRecordView({
         )}
 
         {tab === "Tasks" && (
-          <div className="space-y-4">
-            {editable && (
-              <TaskComposer
-                onAdd={(subject, dueDate) =>
-                  addActivity({ companyId: company.id, type: "TASK", subject, dueDate }).then((r) => {
-                    if (!r || !("error" in r) || !r.error) router.refresh();
-                    return r;
-                  })
-                }
-              />
-            )}
-            <Feed
-              items={tasks}
-              editable={editable}
-              onToggle={(id) => toggleActivityDone(id).then(() => router.refresh())}
-              onDelete={(id) => deleteActivity(id).then(() => router.refresh())}
-            />
-          </div>
+          <TaskPanel tasks={taskItems} users={users} anchor={{ companyId: company.id }} editable={editable} />
         )}
 
         {tab === "Contacts" && (

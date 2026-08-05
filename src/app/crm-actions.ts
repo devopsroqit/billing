@@ -15,6 +15,8 @@ import {
   COMMERCIAL_MODELS,
   CURRENCIES,
   isTerminalStage,
+  TASK_PRIORITIES,
+  TASK_STATUSES,
 } from "@/lib/constants";
 
 // CRM server actions. Kept separate from the large src/app/actions.ts. Same
@@ -501,4 +503,118 @@ export async function deleteContact(id: string) {
   revalidatePath("/crm/contacts");
   if (c.companyId) revalidatePath(`/crm/companies/${c.companyId}`);
   redirect("/crm/contacts");
+}
+
+// ===========================================================================
+// Tasks — a standalone unit of work (distinct from the Activity audit log).
+// ===========================================================================
+function revalidateTaskAnchors(t: { dealId?: string | null; companyId?: string | null; contactId?: string | null }) {
+  revalidatePath("/crm/tasks");
+  if (t.dealId) revalidatePath(`/crm/deals/${t.dealId}`);
+  if (t.companyId) revalidatePath(`/crm/companies/${t.companyId}`);
+  if (t.contactId) revalidatePath(`/crm/contacts/${t.contactId}`);
+}
+
+const taskSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  assigneeUserId: z.string().optional(),
+  assigneeExternal: z.string().optional(),
+  priority: z.enum(TASK_PRIORITIES),
+  status: z.enum(TASK_STATUSES),
+  dueAt: z.string().optional(),
+  dealId: z.string().optional(),
+  companyId: z.string().optional(),
+  contactId: z.string().optional(),
+});
+
+export async function saveTask(formData: FormData): Promise<{ ok?: true; error?: string }> {
+  const user = await requireEditor();
+  const raw = Object.fromEntries(formData) as Record<string, string>;
+  const parsed = taskSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the task fields." };
+  }
+  const p = parsed.data;
+  const nowDone = p.status === "DONE";
+  const data = {
+    title: p.title.trim(),
+    description: orNull(p.description),
+    assigneeUserId: orNull(p.assigneeUserId),
+    assigneeExternal: orNull(p.assigneeExternal),
+    priority: p.priority,
+    status: p.status,
+    dueAt: parseDate(p.dueAt),
+  };
+
+  if (p.id) {
+    const before = await prisma.task.findUnique({ where: { id: p.id } });
+    const completion = nowDone
+      ? { completedAt: before?.completedAt ?? new Date(), completedById: before?.completedById ?? user.id }
+      : { completedAt: null, completedById: null };
+    const t = await prisma.task.update({ where: { id: p.id }, data: { ...data, ...completion } });
+    await audit(user.id, "UPDATE", "Task", p.id, data.title);
+    revalidateTaskAnchors(t);
+    return { ok: true };
+  }
+  const t = await prisma.task.create({
+    data: {
+      ...data,
+      ...(nowDone ? { completedAt: new Date(), completedById: user.id } : {}),
+      dealId: orNull(p.dealId),
+      companyId: orNull(p.companyId),
+      contactId: orNull(p.contactId),
+      createdById: user.id,
+    },
+  });
+  await audit(user.id, "CREATE", "Task", t.id, data.title);
+  revalidateTaskAnchors(t);
+  return { ok: true };
+}
+
+export async function updateTaskStatus(id: string, status: string) {
+  const user = await requireEditor();
+  if (!(TASK_STATUSES as readonly string[]).includes(status)) return { error: "Invalid status." };
+  const t = await prisma.task.findUnique({ where: { id } });
+  if (!t) return { error: "Task not found." };
+  const done = status === "DONE";
+  const updated = await prisma.task.update({
+    where: { id },
+    data: {
+      status,
+      completedAt: done ? (t.completedAt ?? new Date()) : null,
+      completedById: done ? (t.completedById ?? user.id) : null,
+    },
+  });
+  await audit(user.id, "UPDATE", "Task", id, `status → ${status}`);
+  revalidateTaskAnchors(updated);
+  return { ok: true };
+}
+
+// Checkbox toggle: DONE ⇄ TODO (records/clears completion).
+export async function toggleTaskDone(id: string) {
+  const user = await requireEditor();
+  const t = await prisma.task.findUnique({ where: { id } });
+  if (!t) return;
+  const done = t.status !== "DONE";
+  const updated = await prisma.task.update({
+    where: { id },
+    data: {
+      status: done ? "DONE" : "TODO",
+      completedAt: done ? new Date() : null,
+      completedById: done ? user.id : null,
+    },
+  });
+  await audit(user.id, "UPDATE", "Task", id, done ? "completed" : "reopened");
+  revalidateTaskAnchors(updated);
+}
+
+export async function deleteTask(id: string) {
+  const user = await requireEditor();
+  const t = await prisma.task.findUnique({ where: { id } });
+  if (!t) return;
+  await prisma.task.delete({ where: { id } });
+  await audit(user.id, "DELETE", "Task", id, t.title);
+  revalidateTaskAnchors(t);
 }

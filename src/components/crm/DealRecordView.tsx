@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { StatusBadge } from "@/components/ui";
 import { InlineField } from "@/components/crm/InlineField";
-import { Feed, NoteComposer, TaskComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { Feed, NoteComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
 import { majorToMinor, minorToMajor, formatMoney } from "@/lib/money";
 import {
   DEAL_STAGES,
@@ -62,6 +63,7 @@ export function DealRecordView({
   companies,
   users,
   activities,
+  taskItems,
   people,
   nextDueTaskLabel,
   documentsSlot,
@@ -72,6 +74,7 @@ export function DealRecordView({
   companies: Option[];
   users: Option[];
   activities: ActivityItem[];
+  taskItems: TaskItem[];
   people: PersonItem[];
   nextDueTaskLabel: string | null;
   documentsSlot: React.ReactNode;
@@ -88,7 +91,6 @@ export function DealRecordView({
   const save = (field: string) => (value: string) => updateDealField(deal.id, field, value);
 
   const notes = activities.filter((a) => a.type === "NOTE");
-  const tasks = activities.filter((a) => a.type === "TASK");
 
   // Money fields edit in major units; render formats the minor-unit amount.
   const moneyValue = (minor: number) => (minor ? String(minorToMajor(minor)) : "");
@@ -106,7 +108,7 @@ export function DealRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? notes.length : t === "Tasks" ? tasks.length : t === "People" ? people.length : t === "Activity" ? activities.length : t === "Documents" ? docCount : null;
+            const count = t === "Notes" ? notes.length : t === "Tasks" ? taskItems.length : t === "People" ? people.length : t === "Activity" ? activities.length : t === "Documents" ? docCount : null;
             return (
               <button
                 key={t}
@@ -198,24 +200,7 @@ export function DealRecordView({
         )}
 
         {tab === "Tasks" && (
-          <div className="space-y-4">
-            {editable && (
-              <TaskComposer
-                onAdd={(subject, dueDate) =>
-                  addActivity({ dealId: deal.id, companyId: deal.companyId ?? undefined, type: "TASK", subject, dueDate }).then((r) => {
-                    if (!r || !("error" in r) || !r.error) router.refresh();
-                    return r;
-                  })
-                }
-              />
-            )}
-            <Feed
-              items={tasks}
-              editable={editable}
-              onToggle={(id) => toggleActivityDone(id).then(() => router.refresh())}
-              onDelete={(id) => deleteActivity(id).then(() => router.refresh())}
-            />
-          </div>
+          <TaskPanel tasks={taskItems} users={users} anchor={{ dealId: deal.id }} editable={editable} />
         )}
 
         {tab === "People" && (

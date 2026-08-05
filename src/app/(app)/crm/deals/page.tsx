@@ -32,11 +32,11 @@ export default async function DealsPage({
     include: {
       company: { select: { name: true } },
       // The earliest open task on the deal → the "Next due task" column.
-      activities: {
-        where: { type: "TASK", status: "OPEN" },
-        orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+      tasks: {
+        where: { status: { notIn: ["DONE", "CANCELLED"] } },
+        orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
         take: 1,
-        select: { subject: true, dueDate: true },
+        select: { title: true, dueAt: true },
       },
     },
   });
@@ -100,7 +100,7 @@ export default async function DealsPage({
             </thead>
             <tbody className="divide-y divide-border">
               {rows.map((d) => {
-                const task = d.activities[0];
+                const task = d.tasks[0];
                 return (
                   <tr key={d.id} className="hover:bg-surface-2">
                     <td className="td font-medium text-fg">
@@ -115,8 +115,8 @@ export default async function DealsPage({
                     <td className="td text-muted">
                       {task ? (
                         <>
-                          {task.subject}
-                          {task.dueDate && <span className="block text-xs text-faint">Due {format(task.dueDate, "d MMM yyyy")}</span>}
+                          {task.title}
+                          {task.dueAt && <span className="block text-xs text-faint">Due {format(task.dueAt, "d MMM yyyy")}</span>}
                         </>
                       ) : "—"}
                     </td>

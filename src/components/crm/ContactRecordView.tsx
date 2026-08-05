@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { InlineField } from "@/components/crm/InlineField";
-import { Feed, NoteComposer, TaskComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { Feed, NoteComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
 import {
   updateContactField,
   addActivity,
@@ -35,12 +36,14 @@ export function ContactRecordView({
   companies,
   users,
   activities,
+  taskItems,
   editable,
 }: {
   contact: ContactData;
   companies: Option[];
   users: Option[];
   activities: ActivityItem[];
+  taskItems: TaskItem[];
   editable: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("Activity");
@@ -53,7 +56,6 @@ export function ContactRecordView({
   const save = (field: string) => (value: string) => updateContactField(contact.id, field, value);
 
   const notes = activities.filter((a) => a.type === "NOTE");
-  const tasks = activities.filter((a) => a.type === "TASK");
 
   const anchor = { contactId: contact.id, companyId: contact.companyId ?? undefined };
 
@@ -68,7 +70,7 @@ export function ContactRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? notes.length : t === "Tasks" ? tasks.length : activities.length;
+            const count = t === "Notes" ? notes.length : t === "Tasks" ? taskItems.length : activities.length;
             return (
               <button
                 key={t}
@@ -105,24 +107,7 @@ export function ContactRecordView({
         )}
 
         {tab === "Tasks" && (
-          <div className="space-y-4">
-            {editable && (
-              <TaskComposer
-                onAdd={(subject, dueDate) =>
-                  addActivity({ ...anchor, type: "TASK", subject, dueDate }).then((r) => {
-                    if (!r || !("error" in r) || !r.error) router.refresh();
-                    return r;
-                  })
-                }
-              />
-            )}
-            <Feed
-              items={tasks}
-              editable={editable}
-              onToggle={(id) => toggleActivityDone(id).then(() => router.refresh())}
-              onDelete={(id) => deleteActivity(id).then(() => router.refresh())}
-            />
-          </div>
+          <TaskPanel tasks={taskItems} users={users} anchor={{ contactId: contact.id }} editable={editable} />
         )}
       </div>
 

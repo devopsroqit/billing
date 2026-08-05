@@ -219,6 +219,30 @@ export const DEAL_SOURCE_LABELS: Record<DealSource, string> = {
   OTHER: "Other",
 };
 
+// --- Tasks -------------------------------------------------------------------
+export const TASK_PRIORITIES = ["HIGH", "MEDIUM", "LOW"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
+export const TASK_STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "DONE", "CANCELLED"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  BACKLOG: "Backlog",
+  TODO: "To Do",
+  IN_PROGRESS: "In Progress",
+  DONE: "Done",
+  CANCELLED: "Cancelled",
+};
+// A task is "closed" (no longer actionable / not overdue-eligible) when done or cancelled.
+export const CLOSED_TASK_STATUSES: TaskStatus[] = ["DONE", "CANCELLED"];
+export function isTaskClosed(status: string): boolean {
+  return (CLOSED_TASK_STATUSES as string[]).includes(status);
+}
+
 export const ACTIVITY_TYPES = ["NOTE", "CALL", "EMAIL", "MEETING", "TASK"] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
@@ -292,4 +316,13 @@ export const STATUS_BADGE: Record<string, string> = {
   // CRM — task status
   OPEN: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   DONE: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  // Task workflow statuses
+  BACKLOG: "bg-slate-500/15 text-muted",
+  TODO: "bg-brand-500/15 text-brand-600 dark:text-brand-500",
+  IN_PROGRESS: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  CANCELLED: "bg-slate-500/15 text-muted",
+  // Task priorities
+  HIGH: "bg-red-500/15 text-red-600 dark:text-red-400",
+  MEDIUM: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  LOW: "bg-slate-500/15 text-muted",
 };

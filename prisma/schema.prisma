@@ -333,6 +333,7 @@ model Company {
   activities Activity[]
   documents  Document[]
   devices    Device[]
+  tasks      Task[]
 
   @@index([relationshipType])
   @@index([ownerId])
@@ -358,6 +359,7 @@ model Contact {
   dealsAsPrimary Deal[]     @relation("DealPrimaryContact")
   activities     Activity[]
   documents      Document[]
+  tasks          Task[]
 
   @@index([companyId])
 }
@@ -395,6 +397,7 @@ model Deal {
   primaryContact Contact?   @relation("DealPrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
   activities     Activity[]
   documents      Document[]
+  tasks          Task[]
 
   @@index([stage])
   @@index([companyId])
@@ -429,4 +432,35 @@ model Activity {
   @@index([dealId])
   @@index([dueDate])
   @@index([status])
+}
+
+// A unit of work assigned to a team member (internal) or an external person.
+// Distinct from the read-only Activity audit log. Owner/assignee/creator are
+// bare User ids (resolved to names in the UI), matching Deal.ownerId.
+model Task {
+  id               String    @id @default(cuid())
+  title            String
+  description      String?
+  assigneeUserId   String? // internal assignee (User.id)
+  assigneeExternal String? // external assignee name/email (when not a User)
+  priority         String    @default("MEDIUM") // HIGH | MEDIUM | LOW
+  status           String    @default("TODO") // BACKLOG | TODO | IN_PROGRESS | DONE | CANCELLED
+  dueAt            DateTime?
+  completedById    String?
+  completedAt      DateTime?
+  dealId           String?
+  companyId        String?
+  contactId        String?
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([assigneeUserId])
+  @@index([dealId])
+  @@index([dueAt])
 }

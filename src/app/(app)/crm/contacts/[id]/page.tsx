@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSessionUser, canEdit } from "@/lib/auth";
 import { DeleteButton } from "@/components/DeleteButton";
 import { ContactRecordView } from "@/components/crm/ContactRecordView";
+import { toTaskItem } from "@/lib/tasks";
 import { deleteContact } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
       activities: {
         orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
       },
+      tasks: { orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }] },
     },
   });
   if (!contact) notFound();
@@ -38,6 +40,9 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
     dueLabel: a.dueDate ? format(a.dueDate, "d MMM yyyy") : null,
     contactName: null,
   }));
+
+  const userNameMap = new Map(users.map((u) => [u.id, u.name]));
+  const taskItems = contact.tasks.map((t) => toTaskItem(t, (id) => (id ? userNameMap.get(id) ?? "—" : null)));
 
   const fullName = `${contact.firstName} ${contact.lastName}`.trim();
 
@@ -70,6 +75,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
         companies={companies}
         users={users}
         activities={activities}
+        taskItems={taskItems}
         editable={editable}
       />
     </div>

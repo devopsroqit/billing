@@ -6,6 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { DEAL_STAGE_LABELS, type DealStage, type Currency } from "@/lib/constants";
 import { DeleteButton } from "@/components/DeleteButton";
 import { CompanyRecordView } from "@/components/crm/CompanyRecordView";
+import { toTaskItem } from "@/lib/tasks";
 import { deleteCompany, toggleCompanyActive } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
         include: { contact: { select: { firstName: true, lastName: true } } },
       },
+      tasks: { orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }] },
     },
   });
   if (!company) notFound();
@@ -62,6 +64,9 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
     amountLabel: formatMoney(d.amountMinor, d.currency as Currency),
   }));
 
+  const userNameMap = new Map(users.map((u) => [u.id, u.name]));
+  const taskItems = company.tasks.map((t) => toTaskItem(t, (id) => (id ? userNameMap.get(id) ?? "—" : null)));
+
   return (
     <div>
       {editable && (
@@ -97,6 +102,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         }}
         users={users}
         activities={activities}
+        taskItems={taskItems}
         contacts={contacts}
         deals={deals}
         editable={editable}

@@ -17,7 +17,8 @@ async function main() {
   await prisma.document.deleteMany();
   await prisma.paymentEntry.deleteMany();
   await prisma.service.deleteMany();
-  // CRM (order matters: activities → deals → contacts → companies)
+  // CRM (order matters: tasks/activities → deals → contacts → companies)
+  await prisma.task.deleteMany();
   await prisma.activity.deleteMany();
   await prisma.deal.deleteMany();
   await prisma.contact.deleteMany();
@@ -341,23 +342,38 @@ async function main() {
   });
   await prisma.activity.create({
     data: {
-      type: "TASK", subject: "Send revised proposal to GreenFleet", status: "OPEN",
-      dueDate: d(2026, 8, 8), companyId: greenfleet.id, dealId: greenfleetDeal.id,
-      ownerId: editor.id, createdById: editor.id,
-    },
-  });
-  await prisma.activity.create({
-    data: {
-      type: "TASK", subject: "Prepare RFP response for Metro", status: "OPEN",
-      dueDate: d(2026, 8, 20), companyId: metro.id, dealId: metroDeal.id,
-      ownerId: editor.id, createdById: admin.id,
-    },
-  });
-  await prisma.activity.create({
-    data: {
       type: "EMAIL", subject: "Shared cold-chain datasheet", body: "Emailed sensor spec + pricing grid.",
       status: "DONE", occurredAt: d(2026, 7, 28), companyId: coastal.id,
       ownerId: admin.id, createdById: admin.id,
+    },
+  });
+
+  // Tasks (standalone module)
+  await prisma.task.create({
+    data: {
+      title: "Send revised proposal to GreenFleet", description: "Incorporate pilot pricing feedback.",
+      priority: "HIGH", status: "IN_PROGRESS", dueAt: d(2026, 8, 8),
+      assigneeUserId: editor.id, dealId: greenfleetDeal.id, companyId: greenfleet.id, createdById: editor.id,
+    },
+  });
+  await prisma.task.create({
+    data: {
+      title: "Prepare RFP response for Metro", priority: "MEDIUM", status: "TODO", dueAt: d(2026, 8, 20),
+      assigneeUserId: editor.id, dealId: metroDeal.id, companyId: metro.id, createdById: admin.id,
+    },
+  });
+  await prisma.task.create({
+    data: {
+      title: "Follow up on AMC renewal", priority: "LOW", status: "DONE",
+      dueAt: d(2026, 7, 15), completedAt: d(2026, 7, 14), completedById: editor.id,
+      assigneeUserId: editor.id, dealId: bharatDeal.id, companyId: bharat.id, createdById: editor.id,
+    },
+  });
+  await prisma.task.create({
+    data: {
+      title: "Chase signed order form (external legal)", description: "Awaiting counter-signature.",
+      priority: "HIGH", status: "TODO", dueAt: d(2026, 7, 20),
+      assigneeExternal: "legal@coastalcc.example", companyId: coastal.id, createdById: admin.id,
     },
   });
 
