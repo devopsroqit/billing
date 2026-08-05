@@ -17,6 +17,12 @@ async function main() {
   await prisma.document.deleteMany();
   await prisma.paymentEntry.deleteMany();
   await prisma.service.deleteMany();
+  // CRM (order matters: tasks/activities → deals → contacts → companies)
+  await prisma.task.deleteMany();
+  await prisma.activity.deleteMany();
+  await prisma.deal.deleteMany();
+  await prisma.contact.deleteMany();
+  await prisma.company.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.user.deleteMany();
 
@@ -193,6 +199,183 @@ async function main() {
       },
     });
   }
+
+  // ---- CRM demo data (companies, contacts, deals, activities) ------------
+  const bharat = await prisma.company.create({
+    data: {
+      name: "Bharat Logistics Pvt Ltd", relationshipType: "CUSTOMER",
+      categories: "Logistics, Fleet", size: "ENTERPRISE", teamSize: 1200,
+      source: "EXISTING_RELATIONSHIP",
+      domains: "bharatlogistics.example", email: "ops@bharatlogistics.example",
+      phone: "+91 98200 11223", primaryLocation: "MIDC, Pune, MH", gstin: "27ABCDE1234F1Z5",
+      description: "Rolled out 500 GPS trackers across their fleet.",
+      ownerId: editor.id, createdById: admin.id,
+    },
+  });
+  const greenfleet = await prisma.company.create({
+    data: {
+      name: "GreenFleet Mobility", relationshipType: "PROSPECT",
+      categories: "EV Fleet, Mobility", size: "MID_MARKET", teamSize: 180,
+      source: "INBOUND",
+      domains: "greenfleet.example", email: "hello@greenfleet.example",
+      phone: "+91 99000 44556", primaryLocation: "HSR Layout, Bengaluru, KA",
+      description: "Evaluating trackers for their EV pilot.", ownerId: editor.id, createdById: admin.id,
+    },
+  });
+  const coastal = await prisma.company.create({
+    data: {
+      name: "Coastal Cold Chain", relationshipType: "CUSTOMER",
+      categories: "Cold Chain", size: "SMB", teamSize: 60, source: "OUTBOUND",
+      email: "procurement@coastalcc.example", phone: "+91 90000 77889",
+      primaryLocation: "Kochi, KL", description: "Temperature sensors for reefer trucks.",
+      ownerId: admin.id, createdById: admin.id,
+    },
+  });
+  const metro = await prisma.company.create({
+    data: {
+      name: "Metro Transit Authority", relationshipType: "PROSPECT",
+      categories: "Public Transport", size: "ENTERPRISE", source: "PARTNER_REFERRAL",
+      email: "rfp@metrotransit.example", primaryLocation: "Hyderabad, TS",
+      description: "Public RFP for bus fleet telematics.", ownerId: editor.id, createdById: admin.id,
+    },
+  });
+
+  const rajesh = await prisma.contact.create({
+    data: {
+      companyId: bharat.id, firstName: "Rajesh", lastName: "Kumar", title: "Head of Operations",
+      email: "rajesh@bharatlogistics.example", phone: "+91 98200 11224", isPrimary: true,
+      ownerId: editor.id, createdById: admin.id,
+    },
+  });
+  const anita = await prisma.contact.create({
+    data: {
+      companyId: greenfleet.id, firstName: "Anita", lastName: "Desai", title: "Founder",
+      email: "anita@greenfleet.example", phone: "+91 99000 44557", isPrimary: true,
+      ownerId: editor.id, createdById: admin.id,
+    },
+  });
+  await prisma.contact.create({
+    data: {
+      companyId: coastal.id, firstName: "Suresh", lastName: "Nair", title: "Procurement Manager",
+      email: "suresh@coastalcc.example", isPrimary: true, ownerId: admin.id, createdById: admin.id,
+    },
+  });
+  const priya = await prisma.contact.create({
+    data: {
+      companyId: metro.id, firstName: "Priya", lastName: "Menon", title: "Project Lead",
+      email: "priya@metrotransit.example", isPrimary: true, ownerId: editor.id, createdById: admin.id,
+    },
+  });
+
+  const bharatDeal = await prisma.deal.create({
+    data: {
+      title: "500-unit GPS tracker rollout", companyId: bharat.id, primaryContactId: rajesh.id,
+      stage: "CASH_RECEIVED", commercialModel: "LICENSE_AMC",
+      amountMinor: inr(1850000), arrMinor: inr(360000), currency: "INR", source: "REFERRAL",
+      assetsInScope: 500, packsInScope: "Fleet Pack",
+      nextAction: "Schedule AMC renewal check-in",
+      contractSignedDate: d(2026, 5, 10), firstInvoiceDate: d(2026, 6, 1), firstPaymentDate: d(2026, 6, 28),
+      expectedCloseDate: d(2026, 6, 30), closedAt: d(2026, 6, 28),
+      notes: "Closed-won. Hardware delivered, subscription active.",
+      ownerId: editor.id, createdById: admin.id,
+    },
+  });
+  const greenfleetDeal = await prisma.deal.create({
+    data: {
+      title: "Fleet pilot — 50 trackers", companyId: greenfleet.id, primaryContactId: anita.id,
+      stage: "DEPLOYMENT_STARTED", commercialModel: "SAAS_RECURRING",
+      amountMinor: inr(275000), arrMinor: inr(180000), currency: "INR", source: "WEBSITE",
+      assetsInScope: 50, packsInScope: "Fleet Pack (Pilot)",
+      nextAction: "Complete initial deployment and signoff",
+      contractSignedDate: d(2026, 7, 5), firstInvoiceDate: d(2026, 7, 20),
+      expectedCloseDate: d(2026, 9, 15), notes: "Deployment underway for the EV pilot.",
+      ownerId: editor.id, createdById: admin.id,
+    },
+  });
+  await prisma.deal.create({
+    data: {
+      title: "Cold-chain sensor deployment", companyId: coastal.id,
+      stage: "PROCUREMENT_ENGAGED", commercialModel: "CUSTOMER_FUNDED_BUILD",
+      amountMinor: inr(640000), currency: "INR", source: "OUTBOUND",
+      assetsInScope: 120, packsInScope: "Cold-chain Pack",
+      nextAction: "Align on unit pricing with procurement",
+      expectedCloseDate: d(2026, 8, 31), notes: "Procurement engaged on 120 sensors.",
+      ownerId: admin.id, createdById: admin.id,
+    },
+  });
+  const metroDeal = await prisma.deal.create({
+    data: {
+      title: "Bus fleet telematics RFP", companyId: metro.id, primaryContactId: priya.id,
+      stage: "QUALIFIED", commercialModel: "REVENUE_SHARE",
+      amountMinor: inr(4200000), currency: "INR", source: "EVENT",
+      assetsInScope: 800, packsInScope: "Transit Pack",
+      nextAction: "Prepare RFP response",
+      expectedCloseDate: d(2026, 11, 30), notes: "Qualified via transport expo. Large RFP.",
+      ownerId: editor.id, createdById: admin.id,
+    },
+  });
+  await prisma.deal.create({
+    data: {
+      title: "Legacy quote (superseded)", companyId: greenfleet.id,
+      stage: "CONTACTED", commercialModel: "POC_FREE",
+      amountMinor: inr(90000), currency: "INR", source: "OTHER",
+      lossReason: "Superseded by the pilot proposal; pricing no longer competitive.",
+      notes: "Lost — replaced by the pilot proposal.",
+      ownerId: editor.id, createdById: admin.id,
+    },
+  });
+
+  // Activities / timeline
+  await prisma.activity.create({
+    data: {
+      type: "NOTE", subject: "Kickoff notes", body: "Fleet team happy with rollout; upsell sensors later.",
+      status: "DONE", occurredAt: d(2026, 7, 1), companyId: bharat.id, dealId: bharatDeal.id,
+      ownerId: editor.id, createdById: editor.id,
+    },
+  });
+  await prisma.activity.create({
+    data: {
+      type: "CALL", subject: "Intro call with Anita", body: "Walked through pilot scope and pricing.",
+      status: "DONE", occurredAt: d(2026, 7, 22), companyId: greenfleet.id, contactId: anita.id,
+      dealId: greenfleetDeal.id, ownerId: editor.id, createdById: editor.id,
+    },
+  });
+  await prisma.activity.create({
+    data: {
+      type: "EMAIL", subject: "Shared cold-chain datasheet", body: "Emailed sensor spec + pricing grid.",
+      status: "DONE", occurredAt: d(2026, 7, 28), companyId: coastal.id,
+      ownerId: admin.id, createdById: admin.id,
+    },
+  });
+
+  // Tasks (standalone module)
+  await prisma.task.create({
+    data: {
+      title: "Send revised proposal to GreenFleet", description: "Incorporate pilot pricing feedback.",
+      priority: "HIGH", status: "IN_PROGRESS", dueAt: d(2026, 8, 8),
+      assigneeUserId: editor.id, dealId: greenfleetDeal.id, companyId: greenfleet.id, createdById: editor.id,
+    },
+  });
+  await prisma.task.create({
+    data: {
+      title: "Prepare RFP response for Metro", priority: "MEDIUM", status: "TODO", dueAt: d(2026, 8, 20),
+      assigneeUserId: editor.id, dealId: metroDeal.id, companyId: metro.id, createdById: admin.id,
+    },
+  });
+  await prisma.task.create({
+    data: {
+      title: "Follow up on AMC renewal", priority: "LOW", status: "DONE",
+      dueAt: d(2026, 7, 15), completedAt: d(2026, 7, 14), completedById: editor.id,
+      assigneeUserId: editor.id, dealId: bharatDeal.id, companyId: bharat.id, createdById: editor.id,
+    },
+  });
+  await prisma.task.create({
+    data: {
+      title: "Chase signed order form (external legal)", description: "Awaiting counter-signature.",
+      priority: "HIGH", status: "TODO", dueAt: d(2026, 7, 20),
+      assigneeExternal: "legal@coastalcc.example", companyId: coastal.id, createdById: admin.id,
+    },
+  });
 
   await prisma.auditLog.create({
     data: { actorId: admin.id, action: "SEED", entity: "System", detail: "Initial demo data loaded" },

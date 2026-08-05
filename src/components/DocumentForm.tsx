@@ -4,16 +4,22 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addDocument, deleteDocument } from "@/app/actions";
 
-// A document attaches to exactly one owner — a payment entry, a purchase, or a
-// device. Pass whichever id applies.
+// A document attaches to exactly one owner — a payment entry, a purchase, a
+// device, or a CRM record (deal / company / contact). Pass whichever id applies.
 export function DocumentForm({
   entryId,
   purchaseId,
   deviceId,
+  dealId,
+  companyId,
+  contactId,
 }: {
   entryId?: string;
   purchaseId?: string;
   deviceId?: string;
+  dealId?: string;
+  companyId?: string;
+  contactId?: string;
 }) {
   const [kind, setKind] = useState<"FILE" | "LINK">("FILE");
   const [error, setError] = useState("");
@@ -41,6 +47,9 @@ export function DocumentForm({
       {entryId && <input type="hidden" name="entryId" value={entryId} />}
       {purchaseId && <input type="hidden" name="purchaseId" value={purchaseId} />}
       {deviceId && <input type="hidden" name="deviceId" value={deviceId} />}
+      {dealId && <input type="hidden" name="dealId" value={dealId} />}
+      {companyId && <input type="hidden" name="companyId" value={companyId} />}
+      {contactId && <input type="hidden" name="contactId" value={contactId} />}
       <input type="hidden" name="kind" value={kind} />
 
       <div className="flex gap-2">

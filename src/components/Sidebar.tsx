@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Icon } from "@/components/Icon";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 type NavItem = { href: string; label: string; icon: string; adminOnly?: boolean };
 const SECTIONS: { heading?: string; items: NavItem[] }[] = [
@@ -16,6 +15,16 @@ const SECTIONS: { heading?: string; items: NavItem[] }[] = [
       { href: "/tracker", label: "Monthly Tracker", icon: "calendar" },
       { href: "/services", label: "Services", icon: "repeat" },
       { href: "/documents", label: "Documents", icon: "folder" },
+    ],
+  },
+  {
+    heading: "CRM",
+    items: [
+      { href: "/crm/companies", label: "Companies", icon: "briefcase" },
+      { href: "/crm/contacts", label: "Contacts", icon: "users" },
+      { href: "/crm/deals", label: "Deals", icon: "trending-up" },
+      { href: "/crm/tasks", label: "My tasks", icon: "check-square" },
+      { href: "/crm/users", label: "Users", icon: "user-check" },
     ],
   },
   {
@@ -103,7 +112,6 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: R
 
   const footer = (
     <div className="border-t border-border p-3">
-      <ThemeToggle />
       <div className="sidebar-label mt-1 rounded-lg px-3 py-2">
         <p className="truncate text-sm font-medium text-fg">{user.name}</p>
         <p className="truncate text-xs text-faint">{user.email}</p>

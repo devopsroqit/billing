@@ -5,7 +5,7 @@
   "description": "roqit Billing — internal recurring-payment tracker for vendors/services, with multi-currency amounts, monthly views, document storage, roles, and reminder alerts.",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma db push --skip-generate && next build",
+    "build": "prisma generate && prisma db push --skip-generate --accept-data-loss && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",

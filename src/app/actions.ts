@@ -236,10 +236,13 @@ export async function duplicatePreviousMonth(formData: FormData) {
 // purchaseId / deviceId is expected; returns the owner data + revalidate path.
 async function resolveDocOwner(
   formData: FormData,
-): Promise<{ owner: { entryId?: string; purchaseId?: string; deviceId?: string }; revalidate: string; entity: string; id: string } | { error: string }> {
+): Promise<{ owner: { entryId?: string; purchaseId?: string; deviceId?: string; dealId?: string; companyId?: string; contactId?: string }; revalidate: string; entity: string; id: string } | { error: string }> {
   const entryId = String(formData.get("entryId") || "");
   const purchaseId = String(formData.get("purchaseId") || "");
   const deviceId = String(formData.get("deviceId") || "");
+  const dealId = String(formData.get("dealId") || "");
+  const companyId = String(formData.get("companyId") || "");
+  const contactId = String(formData.get("contactId") || "");
   if (entryId) {
     const entry = await prisma.paymentEntry.findUnique({ where: { id: entryId } });
     if (!entry) return { error: "Payment row not found." };
@@ -254,6 +257,21 @@ async function resolveDocOwner(
     const d = await prisma.device.findUnique({ where: { id: deviceId } });
     if (!d) return { error: "Device not found." };
     return { owner: { deviceId }, revalidate: `/devices/${deviceId}`, entity: "Device", id: deviceId };
+  }
+  if (dealId) {
+    const d = await prisma.deal.findUnique({ where: { id: dealId } });
+    if (!d) return { error: "Deal not found." };
+    return { owner: { dealId }, revalidate: `/crm/deals/${dealId}`, entity: "Deal", id: dealId };
+  }
+  if (companyId) {
+    const c = await prisma.company.findUnique({ where: { id: companyId } });
+    if (!c) return { error: "Company not found." };
+    return { owner: { companyId }, revalidate: `/crm/companies/${companyId}`, entity: "Company", id: companyId };
+  }
+  if (contactId) {
+    const c = await prisma.contact.findUnique({ where: { id: contactId } });
+    if (!c) return { error: "Contact not found." };
+    return { owner: { contactId }, revalidate: `/crm/contacts/${contactId}`, entity: "Contact", id: contactId };
   }
   return { error: "No owner specified for the document." };
 }
@@ -315,6 +333,9 @@ export async function deleteDocument(id: string) {
   if (doc.entry) revalidatePath(trackerPath(doc.entry.periodYear, doc.entry.periodMonth));
   if (doc.purchaseId) revalidatePath(`/purchases/${doc.purchaseId}`);
   if (doc.deviceId) revalidatePath(`/devices/${doc.deviceId}`);
+  if (doc.dealId) revalidatePath(`/crm/deals/${doc.dealId}`);
+  if (doc.companyId) revalidatePath(`/crm/companies/${doc.companyId}`);
+  if (doc.contactId) revalidatePath(`/crm/contacts/${doc.contactId}`);
   revalidatePath("/documents");
 }
 
