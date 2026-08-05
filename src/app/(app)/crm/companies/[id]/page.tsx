@@ -1,5 +1,4 @@
 import { redirect, notFound } from "next/navigation";
-import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEdit } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
@@ -7,6 +6,7 @@ import { DEAL_STAGE_LABELS, type DealStage, type Currency } from "@/lib/constant
 import { DeleteButton } from "@/components/DeleteButton";
 import { CompanyRecordView } from "@/components/crm/CompanyRecordView";
 import { toTaskItem } from "@/lib/tasks";
+import { toAuditItem, toNoteItem } from "@/lib/crm-feed";
 import { deleteCompany, toggleCompanyActive } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +22,10 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       contacts: { orderBy: [{ isPrimary: "desc" }, { firstName: "asc" }] },
       deals: { orderBy: { createdAt: "desc" } },
       activities: {
-        orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
-        include: { contact: { select: { firstName: true, lastName: true } } },
+        orderBy: { createdAt: "desc" },
+        include: { comments: { orderBy: { createdAt: "asc" } } },
       },
+      noteEntries: { orderBy: { createdAt: "desc" } },
       tasks: { orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }] },
     },
   });
@@ -35,17 +36,6 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
-
-  const activities = company.activities.map((a) => ({
-    id: a.id,
-    type: a.type,
-    subject: a.subject,
-    body: a.body,
-    status: a.status,
-    whenLabel: format(a.occurredAt, "d MMM yyyy"),
-    dueLabel: a.dueDate ? format(a.dueDate, "d MMM yyyy") : null,
-    contactName: a.contact ? `${a.contact.firstName} ${a.contact.lastName}`.trim() : null,
-  }));
 
   const contacts = company.contacts.map((c) => ({
     id: c.id,
@@ -65,7 +55,10 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
   }));
 
   const userNameMap = new Map(users.map((u) => [u.id, u.name]));
-  const taskItems = company.tasks.map((t) => toTaskItem(t, (id) => (id ? userNameMap.get(id) ?? "—" : null)));
+  const userName = (id: string | null) => (id ? userNameMap.get(id) ?? "—" : null);
+  const taskItems = company.tasks.map((t) => toTaskItem(t, userName));
+  const auditItems = company.activities.map((a) => toAuditItem(a, userName));
+  const noteItems = company.noteEntries.map((n) => toNoteItem(n, userName));
 
   return (
     <div>
@@ -101,7 +94,8 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
           ownerId: company.ownerId,
         }}
         users={users}
-        activities={activities}
+        auditItems={auditItems}
+        noteItems={noteItems}
         taskItems={taskItems}
         contacts={contacts}
         deals={deals}

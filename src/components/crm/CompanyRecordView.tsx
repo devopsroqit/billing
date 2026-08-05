@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { StatusBadge } from "@/components/ui";
 import { InlineField } from "@/components/crm/InlineField";
-import { Feed, NoteComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { ActivityAuditFeed, type ActivityAuditItem } from "@/components/crm/ActivityAuditFeed";
+import { NotePanel, type NoteItem } from "@/components/crm/NotePanel";
 import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
 import {
   RELATIONSHIP_TYPES,
@@ -19,14 +19,8 @@ import {
   type CompanySource,
   type CompanySize,
 } from "@/lib/constants";
-import {
-  updateCompanyField,
-  addActivity,
-  toggleActivityDone,
-  deleteActivity,
-} from "@/app/crm-actions";
+import { updateCompanyField } from "@/app/crm-actions";
 
-export type { ActivityItem };
 type ContactItem = { id: string; name: string; title: string | null; isPrimary: boolean; email: string | null; phone: string | null };
 type DealItem = { id: string; title: string; stage: string; stageLabel: string; amountLabel: string };
 type UserOpt = { id: string; name: string };
@@ -65,7 +59,8 @@ function tags(value: string | null): string[] {
 export function CompanyRecordView({
   company,
   users,
-  activities,
+  auditItems,
+  noteItems,
   taskItems,
   contacts,
   deals,
@@ -73,21 +68,19 @@ export function CompanyRecordView({
 }: {
   company: CompanyData;
   users: UserOpt[];
-  activities: ActivityItem[];
+  auditItems: ActivityAuditItem[];
+  noteItems: NoteItem[];
   taskItems: TaskItem[];
   contacts: ContactItem[];
   deals: DealItem[];
   editable: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("Activity");
-  const router = useRouter();
 
   const initials = company.name.trim().slice(0, 2).toUpperCase();
   const userName = (id: string | null) => (id ? users.find((u) => u.id === id)?.name ?? "—" : null);
   const save = (field: string) => (value: string) => updateCompanyField(company.id, field, value);
   const website = firstDomainUrl(company.domains);
-
-  const notes = activities.filter((a) => a.type === "NOTE");
 
   return (
     <div className="lg:flex lg:gap-6">
@@ -101,7 +94,7 @@ export function CompanyRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? notes.length : t === "Tasks" ? taskItems.length : t === "Contacts" ? contacts.length : t === "Deals" ? deals.length : activities.length;
+            const count = t === "Notes" ? noteItems.length : t === "Tasks" ? taskItems.length : t === "Contacts" ? contacts.length : t === "Deals" ? deals.length : auditItems.length;
             return (
               <button
                 key={t}
@@ -116,26 +109,9 @@ export function CompanyRecordView({
           })}
         </div>
 
-        {(tab === "Activity" || tab === "Notes") && (
-          <div className="space-y-4">
-            {editable && (
-              <NoteComposer
-                onAdd={(text) =>
-                  addActivity({ companyId: company.id, type: "NOTE", subject: text }).then((r) => {
-                    if (!r || !("error" in r) || !r.error) router.refresh();
-                    return r;
-                  })
-                }
-              />
-            )}
-            <Feed
-              items={tab === "Notes" ? notes : activities}
-              editable={editable}
-              onToggle={(id) => toggleActivityDone(id).then(() => router.refresh())}
-              onDelete={(id) => deleteActivity(id).then(() => router.refresh())}
-            />
-          </div>
-        )}
+        {tab === "Activity" && <ActivityAuditFeed items={auditItems} editable={editable} />}
+
+        {tab === "Notes" && <NotePanel notes={noteItems} anchor={{ companyId: company.id }} editable={editable} />}
 
         {tab === "Tasks" && (
           <TaskPanel tasks={taskItems} users={users} anchor={{ companyId: company.id }} editable={editable} />

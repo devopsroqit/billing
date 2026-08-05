@@ -2,17 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { InlineField } from "@/components/crm/InlineField";
-import { Feed, NoteComposer, type ActivityItem } from "@/components/crm/ActivityPanel";
+import { ActivityAuditFeed, type ActivityAuditItem } from "@/components/crm/ActivityAuditFeed";
+import { NotePanel, type NoteItem } from "@/components/crm/NotePanel";
 import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
-import {
-  updateContactField,
-  addActivity,
-  toggleActivityDone,
-  deleteActivity,
-} from "@/app/crm-actions";
+import { updateContactField } from "@/app/crm-actions";
 
 type Option = { id: string; name: string };
 export type ContactData = {
@@ -35,29 +30,26 @@ export function ContactRecordView({
   contact,
   companies,
   users,
-  activities,
+  auditItems,
+  noteItems,
   taskItems,
   editable,
 }: {
   contact: ContactData;
   companies: Option[];
   users: Option[];
-  activities: ActivityItem[];
+  auditItems: ActivityAuditItem[];
+  noteItems: NoteItem[];
   taskItems: TaskItem[];
   editable: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("Activity");
-  const router = useRouter();
 
   const fullName = `${contact.firstName} ${contact.lastName}`.trim();
   const initials = fullName.slice(0, 2).toUpperCase();
   const companyName = contact.companyId ? companies.find((c) => c.id === contact.companyId)?.name ?? "—" : null;
   const userName = (id: string | null) => (id ? users.find((u) => u.id === id)?.name ?? "—" : null);
   const save = (field: string) => (value: string) => updateContactField(contact.id, field, value);
-
-  const notes = activities.filter((a) => a.type === "NOTE");
-
-  const anchor = { contactId: contact.id, companyId: contact.companyId ?? undefined };
 
   return (
     <div className="lg:flex lg:gap-6">
@@ -70,7 +62,7 @@ export function ContactRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? notes.length : t === "Tasks" ? taskItems.length : activities.length;
+            const count = t === "Notes" ? noteItems.length : t === "Tasks" ? taskItems.length : auditItems.length;
             return (
               <button
                 key={t}
@@ -85,26 +77,9 @@ export function ContactRecordView({
           })}
         </div>
 
-        {(tab === "Activity" || tab === "Notes") && (
-          <div className="space-y-4">
-            {editable && (
-              <NoteComposer
-                onAdd={(text) =>
-                  addActivity({ ...anchor, type: "NOTE", subject: text }).then((r) => {
-                    if (!r || !("error" in r) || !r.error) router.refresh();
-                    return r;
-                  })
-                }
-              />
-            )}
-            <Feed
-              items={tab === "Notes" ? notes : activities}
-              editable={editable}
-              onToggle={(id) => toggleActivityDone(id).then(() => router.refresh())}
-              onDelete={(id) => deleteActivity(id).then(() => router.refresh())}
-            />
-          </div>
-        )}
+        {tab === "Activity" && <ActivityAuditFeed items={auditItems} editable={editable} />}
+
+        {tab === "Notes" && <NotePanel notes={noteItems} anchor={{ contactId: contact.id }} editable={editable} />}
 
         {tab === "Tasks" && (
           <TaskPanel tasks={taskItems} users={users} anchor={{ contactId: contact.id }} editable={editable} />

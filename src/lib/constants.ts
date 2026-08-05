@@ -243,29 +243,58 @@ export function isTaskClosed(status: string): boolean {
   return (CLOSED_TASK_STATUSES as string[]).includes(status);
 }
 
-export const ACTIVITY_TYPES = ["NOTE", "CALL", "EMAIL", "MEETING", "TASK"] as const;
-export type ActivityType = (typeof ACTIVITY_TYPES)[number];
-export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
-  NOTE: "Note",
-  CALL: "Call",
-  EMAIL: "Email",
-  MEETING: "Meeting",
-  TASK: "Task",
-};
-// Icon name (see src/components/Icon.tsx) per activity type, for the timeline.
-export const ACTIVITY_TYPE_ICONS: Record<ActivityType, string> = {
-  NOTE: "folder",
-  CALL: "phone",
-  EMAIL: "mail",
-  MEETING: "calendar",
-  TASK: "check-square",
+// --- Activity audit log ------------------------------------------------------
+// Activity is a read-only system audit log. `action` is what happened;
+// `entityType` is what it happened to. Both drive the timeline's icon + copy.
+export const ACTIVITY_ACTIONS = [
+  "CREATED",
+  "UPDATED",
+  "DELETED",
+  "STAGE_CHANGED",
+  "OWNER_CHANGED",
+  "COMPLETED",
+  "REOPENED",
+  "INACTIVATED",
+  "REACTIVATED",
+  "CONTRIBUTOR_ADDED",
+  "CONTRIBUTOR_REMOVED",
+  "DOCUMENT_ADDED",
+  "DOCUMENT_REMOVED",
+  "NOTE_ADDED",
+  "COMMENTED",
+] as const;
+export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
+// Icon name (see src/components/Icon.tsx) per action, for the timeline.
+export const ACTIVITY_ACTION_ICONS: Record<ActivityAction, string> = {
+  CREATED: "plus-circle",
+  UPDATED: "edit",
+  DELETED: "trash",
+  STAGE_CHANGED: "trending-up",
+  OWNER_CHANGED: "user-check",
+  COMPLETED: "check-square",
+  REOPENED: "repeat",
+  INACTIVATED: "x-circle",
+  REACTIVATED: "check-square",
+  CONTRIBUTOR_ADDED: "users",
+  CONTRIBUTOR_REMOVED: "users",
+  DOCUMENT_ADDED: "folder",
+  DOCUMENT_REMOVED: "folder",
+  NOTE_ADDED: "mail",
+  COMMENTED: "mail",
 };
 
-export const ACTIVITY_STATUSES = ["OPEN", "DONE"] as const;
-export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
-export const ACTIVITY_STATUS_LABELS: Record<ActivityStatus, string> = {
-  OPEN: "Open",
-  DONE: "Done",
+export const ACTIVITY_ENTITY_TYPES = [
+  "DEAL", "COMPANY", "CONTACT", "TASK", "NOTE", "DOCUMENT", "COLLABORATOR",
+] as const;
+export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[number];
+export const ACTIVITY_ENTITY_LABELS: Record<ActivityEntityType, string> = {
+  DEAL: "Deal",
+  COMPANY: "Company",
+  CONTACT: "Contact",
+  TASK: "Task",
+  NOTE: "Note",
+  DOCUMENT: "Document",
+  COLLABORATOR: "Collaborator",
 };
 
 // --- Month helpers ----------------------------------------------------------

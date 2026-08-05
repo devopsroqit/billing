@@ -7,6 +7,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { DocumentForm, DeleteDocButton } from "@/components/DocumentForm";
 import { DealRecordView } from "@/components/crm/DealRecordView";
 import { toTaskItem } from "@/lib/tasks";
+import { toAuditItem, toNoteItem } from "@/lib/crm-feed";
 import { isTaskClosed } from "@/lib/constants";
 import { deleteDeal, markDealInactive, markProjectCompleted } from "@/app/crm-actions";
 
@@ -24,9 +25,10 @@ export default async function DealDetailPage({ params }: { params: { id: string 
     include: {
       company: { select: { id: true, name: true } },
       activities: {
-        orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
-        include: { contact: { select: { firstName: true, lastName: true } } },
+        orderBy: { createdAt: "desc" },
+        include: { comments: { orderBy: { createdAt: "asc" } } },
       },
+      noteEntries: { orderBy: { createdAt: "desc" } },
       documents: {
         orderBy: { createdAt: "desc" },
         include: { uploadedBy: { select: { name: true } } },
@@ -50,17 +52,6 @@ export default async function DealDetailPage({ params }: { params: { id: string 
       : Promise.resolve([]),
   ]);
 
-  const activities = deal.activities.map((a) => ({
-    id: a.id,
-    type: a.type,
-    subject: a.subject,
-    body: a.body,
-    status: a.status,
-    whenLabel: format(a.occurredAt, "d MMM yyyy"),
-    dueLabel: a.dueDate ? format(a.dueDate, "d MMM yyyy") : null,
-    contactName: a.contact ? `${a.contact.firstName} ${a.contact.lastName}`.trim() : null,
-  }));
-
   const people = contacts.map((c) => ({
     id: c.id,
     name: `${c.firstName} ${c.lastName}`.trim(),
@@ -72,6 +63,8 @@ export default async function DealDetailPage({ params }: { params: { id: string 
   const userNameMap = new Map(users.map((u) => [u.id, u.name]));
   const userName = (id: string | null) => (id ? userNameMap.get(id) ?? "—" : null);
   const taskItems = deal.tasks.map((t) => toTaskItem(t, userName));
+  const auditItems = deal.activities.map((a) => toAuditItem(a, userName));
+  const noteItems = deal.noteEntries.map((n) => toNoteItem(n, userName));
 
   // Earliest open (not closed) task with a due date → the "Next due task" highlight.
   const nextTask = deal.tasks
@@ -154,7 +147,8 @@ export default async function DealDetailPage({ params }: { params: { id: string 
         }}
         companies={companies}
         users={users}
-        activities={activities}
+        auditItems={auditItems}
+        noteItems={noteItems}
         taskItems={taskItems}
         people={people}
         nextDueTaskLabel={nextDueTaskLabel}

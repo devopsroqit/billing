@@ -6,11 +6,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSessionUser, logout, assertCanEdit } from "@/lib/auth";
 import { majorToMinor } from "@/lib/money";
+import { logActivity, parseMentions } from "@/lib/activity";
 import {
   RELATIONSHIP_TYPES,
   COMPANY_SOURCES,
   COMPANY_SIZES,
-  ACTIVITY_TYPES,
   DEAL_STAGES,
   COMMERCIAL_MODELS,
   CURRENCIES,
@@ -122,12 +122,14 @@ export async function saveCompany(formData: FormData) {
   if (p.id) {
     await prisma.company.update({ where: { id: p.id }, data });
     await audit(user.id, "UPDATE", "Company", p.id, data.name);
+    await logActivity({ actorId: user.id, action: "UPDATED", entityType: "COMPANY", entityId: p.id, summary: `Edited company ${data.name}`, companyId: p.id });
     revalidatePath("/crm/companies");
     revalidatePath(`/crm/companies/${p.id}`);
     redirect(`/crm/companies/${p.id}`);
   }
   const created = await prisma.company.create({ data: { ...data, createdById: user.id } });
   await audit(user.id, "CREATE", "Company", created.id, data.name);
+  await logActivity({ actorId: user.id, action: "CREATED", entityType: "COMPANY", entityId: created.id, summary: `Created company ${data.name}`, companyId: created.id });
   revalidatePath("/crm/companies");
   redirect(`/crm/companies/${created.id}`);
 }
@@ -138,6 +140,7 @@ export async function toggleCompanyActive(id: string) {
   if (!c) return;
   await prisma.company.update({ where: { id }, data: { active: !c.active } });
   await audit(user.id, c.active ? "DEACTIVATE" : "ACTIVATE", "Company", id, c.name);
+  await logActivity({ actorId: user.id, action: c.active ? "INACTIVATED" : "REACTIVATED", entityType: "COMPANY", entityId: id, summary: c.active ? `Deactivated company ${c.name}` : `Reactivated company ${c.name}`, companyId: id });
   revalidatePath("/crm/companies");
   revalidatePath(`/crm/companies/${id}`);
 }
@@ -150,6 +153,7 @@ export async function deleteCompany(id: string) {
   // onDelete: SetNull); activities and documents owned by the company cascade.
   await prisma.company.delete({ where: { id } });
   await audit(user.id, "DELETE", "Company", id, c.name);
+  await logActivity({ actorId: user.id, action: "DELETED", entityType: "COMPANY", entityId: id, summary: `Deleted company ${c.name}` });
   revalidatePath("/crm/companies");
   redirect("/crm/companies");
 }
@@ -190,6 +194,7 @@ export async function saveContact(formData: FormData) {
   if (p.id) {
     await prisma.contact.update({ where: { id: p.id }, data });
     await audit(user.id, "UPDATE", "Contact", p.id, label);
+    await logActivity({ actorId: user.id, action: "UPDATED", entityType: "CONTACT", entityId: p.id, summary: `Edited contact ${label}`, contactId: p.id, companyId: data.companyId });
     revalidatePath("/crm/contacts");
     revalidatePath(`/crm/contacts/${p.id}`);
     if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
@@ -197,6 +202,7 @@ export async function saveContact(formData: FormData) {
   }
   const created = await prisma.contact.create({ data: { ...data, createdById: user.id } });
   await audit(user.id, "CREATE", "Contact", created.id, label);
+  await logActivity({ actorId: user.id, action: "CREATED", entityType: "CONTACT", entityId: created.id, summary: `Created contact ${label}`, contactId: created.id, companyId: data.companyId });
   revalidatePath("/crm/contacts");
   if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
   redirect(`/crm/contacts/${created.id}`);
@@ -231,8 +237,15 @@ export async function updateCompanyField(id: string, field: string, value: strin
   else stored = trimmed === "" ? null : trimmed;
 
   const data: Record<string, unknown> = { [field]: stored };
+  const prev = await prisma.company.findUnique({ where: { id } });
   await prisma.company.update({ where: { id }, data });
   await audit(user.id, "UPDATE", "Company", id, field);
+  await logActivity({
+    actorId: user.id, action: field === "ownerId" ? "OWNER_CHANGED" : "UPDATED", entityType: "COMPANY", entityId: id,
+    summary: `Updated ${field}`, field,
+    previousValue: prev ? String((prev as Record<string, unknown>)[field] ?? "") : null,
+    newValue: stored != null ? String(stored) : null, companyId: id,
+  });
   revalidatePath(`/crm/companies/${id}`);
   revalidatePath("/crm/companies");
   return { ok: true };
@@ -256,9 +269,16 @@ export async function updateContactField(id: string, field: string, value: strin
   else stored = trimmed === "" ? null : trimmed;
 
   const data: Record<string, unknown> = { [field]: stored };
-  const before = await prisma.contact.findUnique({ where: { id }, select: { companyId: true } });
+  const before = await prisma.contact.findUnique({ where: { id } });
   await prisma.contact.update({ where: { id }, data });
   await audit(user.id, "UPDATE", "Contact", id, field);
+  await logActivity({
+    actorId: user.id, action: field === "ownerId" ? "OWNER_CHANGED" : "UPDATED", entityType: "CONTACT", entityId: id,
+    summary: `Updated ${field}`, field,
+    previousValue: before ? String((before as Record<string, unknown>)[field] ?? "") : null,
+    newValue: stored != null ? String(stored) : null,
+    contactId: id, companyId: before?.companyId ?? null,
+  });
   revalidatePath(`/crm/contacts/${id}`);
   revalidatePath("/crm/contacts");
   if (before?.companyId) revalidatePath(`/crm/companies/${before.companyId}`);
@@ -314,6 +334,11 @@ export async function saveDeal(formData: FormData) {
   if (p.id) {
     await prisma.deal.update({ where: { id: p.id }, data });
     await audit(user.id, "UPDATE", "Deal", p.id, data.title);
+    await logActivity({
+      actorId: user.id, action: "UPDATED", entityType: "DEAL", entityId: p.id,
+      summary: `Edited deal ${data.title}`, dealStage: data.stage,
+      dealId: p.id, companyId: data.companyId,
+    });
     revalidatePath("/crm/deals");
     revalidatePath(`/crm/deals/${p.id}`);
     if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
@@ -321,6 +346,11 @@ export async function saveDeal(formData: FormData) {
   }
   const created = await prisma.deal.create({ data: { ...data, createdById: user.id } });
   await audit(user.id, "CREATE", "Deal", created.id, data.title);
+  await logActivity({
+    actorId: user.id, action: "CREATED", entityType: "DEAL", entityId: created.id,
+    summary: `Created deal ${data.title}`, dealStage: data.stage,
+    dealId: created.id, companyId: data.companyId,
+  });
   revalidatePath("/crm/deals");
   if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
   redirect(`/crm/deals/${created.id}`);
@@ -330,12 +360,18 @@ export async function saveDeal(formData: FormData) {
 export async function updateDealStage(id: string, stage: string) {
   const user = await requireEditor();
   if (!(DEAL_STAGES as readonly string[]).includes(stage)) return { error: "Invalid stage." };
-  const before = await prisma.deal.findUnique({ where: { id }, select: { companyId: true, closedAt: true } });
+  const before = await prisma.deal.findUnique({ where: { id }, select: { companyId: true, closedAt: true, stage: true, title: true } });
   await prisma.deal.update({
     where: { id },
     data: { stage, closedAt: isTerminalStage(stage) ? (before?.closedAt ?? new Date()) : null },
   });
   await audit(user.id, "UPDATE", "Deal", id, `stage → ${stage}`);
+  await logActivity({
+    actorId: user.id, action: "STAGE_CHANGED", entityType: "DEAL", entityId: id,
+    summary: `Moved deal to ${stage}`, field: "stage",
+    previousValue: before?.stage, newValue: stage, dealStage: stage,
+    dealId: id, companyId: before?.companyId,
+  });
   revalidatePath("/crm/deals");
   revalidatePath(`/crm/deals/${id}`);
   if (before?.companyId) revalidatePath(`/crm/companies/${before.companyId}`);
@@ -385,9 +421,18 @@ export async function updateDealField(id: string, field: string, value: string) 
     data[field] = trimmed === "" ? null : trimmed;
   }
 
-  const before = await prisma.deal.findUnique({ where: { id }, select: { companyId: true } });
+  const before = await prisma.deal.findUnique({ where: { id } });
   await prisma.deal.update({ where: { id }, data });
   await audit(user.id, "UPDATE", "Deal", id, field);
+  const action = field === "stage" ? "STAGE_CHANGED" : field === "ownerId" ? "OWNER_CHANGED" : "UPDATED";
+  const prev = before ? (before as Record<string, unknown>)[DEAL_MONEY_FIELDS.has(field) ? DEAL_MONEY_COLUMN[field] : field] : undefined;
+  await logActivity({
+    actorId: user.id, action, entityType: "DEAL", entityId: id,
+    summary: field === "stage" ? `Moved deal to ${trimmed}` : `Updated ${field}`,
+    field, previousValue: prev != null ? String(prev) : null, newValue: trimmed || null,
+    dealStage: field === "stage" ? trimmed : before?.stage ?? null,
+    dealId: id, companyId: before?.companyId ?? null,
+  });
   revalidatePath(`/crm/deals/${id}`);
   revalidatePath("/crm/deals");
   if (before?.companyId) revalidatePath(`/crm/companies/${before.companyId}`);
@@ -401,6 +446,8 @@ export async function deleteDeal(id: string) {
   if (!d) return;
   await prisma.deal.delete({ where: { id } });
   await audit(user.id, "DELETE", "Deal", id, d.title);
+  // Anchor left null — the deal record is gone; this is a global audit entry.
+  await logActivity({ actorId: user.id, action: "DELETED", entityType: "DEAL", entityId: id, summary: `Deleted deal ${d.title}`, companyId: d.companyId });
   revalidatePath("/crm/deals");
   if (d.companyId) revalidatePath(`/crm/companies/${d.companyId}`);
   redirect("/crm/deals");
@@ -413,6 +460,11 @@ export async function markDealInactive(id: string) {
   if (!d) return;
   await prisma.deal.update({ where: { id }, data: { active: !d.active } });
   await audit(user.id, d.active ? "DEACTIVATE" : "ACTIVATE", "Deal", id, d.title);
+  await logActivity({
+    actorId: user.id, action: d.active ? "INACTIVATED" : "REACTIVATED", entityType: "DEAL", entityId: id,
+    summary: d.active ? `Marked deal inactive` : `Reactivated deal`, dealStage: d.stage,
+    dealId: id, companyId: d.companyId,
+  });
   revalidatePath("/crm/deals");
   revalidatePath(`/crm/deals/${id}`);
 }
@@ -425,73 +477,98 @@ export async function markProjectCompleted(id: string) {
   const done = !d.projectCompletedAt;
   await prisma.deal.update({ where: { id }, data: { projectCompletedAt: done ? new Date() : null } });
   await audit(user.id, done ? "PROJECT_COMPLETED" : "PROJECT_REOPENED", "Deal", id, d.title);
+  await logActivity({
+    actorId: user.id, action: done ? "COMPLETED" : "REOPENED", entityType: "DEAL", entityId: id,
+    summary: done ? `Marked project completed` : `Reopened project`, dealStage: d.stage,
+    dealId: id, companyId: d.companyId,
+  });
   revalidatePath("/crm/deals");
   revalidatePath(`/crm/deals/${id}`);
 }
 
 // ===========================================================================
-// Activities (notes / tasks / logged interactions) — the record timeline
+// Notes (user-authored) — distinct from the read-only Activity audit log
 // ===========================================================================
-export async function addActivity(input: {
+export async function saveNote(input: {
   companyId?: string;
   contactId?: string;
   dealId?: string;
-  type: string;
-  subject: string;
-  body?: string;
-  dueDate?: string;
+  body: string;
 }) {
   const user = await requireEditor();
-  const type = (ACTIVITY_TYPES as readonly string[]).includes(input.type) ? input.type : "NOTE";
-  const subject = (input.subject ?? "").trim();
-  if (!subject) return { error: "Add some text first." };
-  const isTask = type === "TASK";
-  await prisma.activity.create({
+  const body = (input.body ?? "").trim();
+  if (!body) return { error: "Add some text first." };
+  await prisma.note.create({
     data: {
-      type,
-      subject: subject.slice(0, 300),
-      body: orNull(input.body),
-      status: isTask ? "OPEN" : "DONE",
-      dueDate: isTask && input.dueDate ? new Date(input.dueDate) : null,
-      occurredAt: new Date(),
+      body: body.slice(0, 5000),
       companyId: orNull(input.companyId),
       contactId: orNull(input.contactId),
       dealId: orNull(input.dealId),
-      ownerId: user.id,
-      createdById: user.id,
+      authorId: user.id,
     },
   });
-  await audit(user.id, "CREATE", "Activity", undefined, `${type}: ${subject.slice(0, 60)}`);
+  await logActivity({
+    actorId: user.id,
+    action: "NOTE_ADDED",
+    entityType: "NOTE",
+    summary: `Added a note`,
+    newValue: body.slice(0, 200),
+    companyId: orNull(input.companyId),
+    contactId: orNull(input.contactId),
+    dealId: orNull(input.dealId),
+  });
   if (input.companyId) revalidatePath(`/crm/companies/${input.companyId}`);
   if (input.contactId) revalidatePath(`/crm/contacts/${input.contactId}`);
   if (input.dealId) revalidatePath(`/crm/deals/${input.dealId}`);
   return { ok: true };
 }
 
-export async function toggleActivityDone(id: string) {
+export async function deleteNote(id: string) {
   const user = await requireEditor();
-  const a = await prisma.activity.findUnique({ where: { id } });
-  if (!a) return;
-  const done = a.status !== "DONE";
-  await prisma.activity.update({
-    where: { id },
-    data: { status: done ? "DONE" : "OPEN", completedAt: done ? new Date() : null },
-  });
-  await audit(user.id, "UPDATE", "Activity", id, done ? "completed" : "reopened");
-  if (a.companyId) revalidatePath(`/crm/companies/${a.companyId}`);
-  if (a.contactId) revalidatePath(`/crm/contacts/${a.contactId}`);
-  if (a.dealId) revalidatePath(`/crm/deals/${a.dealId}`);
+  const n = await prisma.note.findUnique({ where: { id } });
+  if (!n) return;
+  await prisma.note.delete({ where: { id } });
+  await audit(user.id, "DELETE", "Note", id, n.body.slice(0, 60));
+  if (n.companyId) revalidatePath(`/crm/companies/${n.companyId}`);
+  if (n.contactId) revalidatePath(`/crm/contacts/${n.contactId}`);
+  if (n.dealId) revalidatePath(`/crm/deals/${n.dealId}`);
 }
 
-export async function deleteActivity(id: string) {
+// ===========================================================================
+// Activity comments (threaded discussion on an audit entry)
+// ===========================================================================
+export async function addActivityComment(input: { activityId: string; body: string; parentId?: string }) {
   const user = await requireEditor();
-  const a = await prisma.activity.findUnique({ where: { id } });
-  if (!a) return;
-  await prisma.activity.delete({ where: { id } });
-  await audit(user.id, "DELETE", "Activity", id, a.subject.slice(0, 60));
-  if (a.companyId) revalidatePath(`/crm/companies/${a.companyId}`);
-  if (a.contactId) revalidatePath(`/crm/contacts/${a.contactId}`);
-  if (a.dealId) revalidatePath(`/crm/deals/${a.dealId}`);
+  const body = (input.body ?? "").trim();
+  if (!body) return { error: "Write something first." };
+  const activity = await prisma.activity.findUnique({ where: { id: input.activityId } });
+  if (!activity) return { error: "Activity not found." };
+  await prisma.activityComment.create({
+    data: {
+      activityId: input.activityId,
+      parentId: orNull(input.parentId),
+      body: body.slice(0, 5000),
+      authorId: user.id,
+    },
+  });
+  // Mentions → notifications are wired in the Notifications phase; parsed here.
+  parseMentions(body);
+  await audit(user.id, "COMMENT", "Activity", input.activityId, body.slice(0, 60));
+  if (activity.companyId) revalidatePath(`/crm/companies/${activity.companyId}`);
+  if (activity.contactId) revalidatePath(`/crm/contacts/${activity.contactId}`);
+  if (activity.dealId) revalidatePath(`/crm/deals/${activity.dealId}`);
+  return { ok: true };
+}
+
+export async function deleteActivityComment(id: string) {
+  const user = await requireEditor();
+  const c = await prisma.activityComment.findUnique({ where: { id }, include: { activity: true } });
+  if (!c) return;
+  await prisma.activityComment.delete({ where: { id } });
+  await audit(user.id, "DELETE", "ActivityComment", id);
+  if (c.activity.companyId) revalidatePath(`/crm/companies/${c.activity.companyId}`);
+  if (c.activity.contactId) revalidatePath(`/crm/contacts/${c.activity.contactId}`);
+  if (c.activity.dealId) revalidatePath(`/crm/deals/${c.activity.dealId}`);
 }
 
 export async function deleteContact(id: string) {
@@ -499,7 +576,9 @@ export async function deleteContact(id: string) {
   const c = await prisma.contact.findUnique({ where: { id } });
   if (!c) return;
   await prisma.contact.delete({ where: { id } });
-  await audit(user.id, "DELETE", "Contact", id, `${c.firstName} ${c.lastName}`.trim());
+  const cname = `${c.firstName} ${c.lastName}`.trim();
+  await audit(user.id, "DELETE", "Contact", id, cname);
+  await logActivity({ actorId: user.id, action: "DELETED", entityType: "CONTACT", entityId: id, summary: `Deleted contact ${cname}`, companyId: c.companyId });
   revalidatePath("/crm/contacts");
   if (c.companyId) revalidatePath(`/crm/companies/${c.companyId}`);
   redirect("/crm/contacts");
@@ -555,6 +634,10 @@ export async function saveTask(formData: FormData): Promise<{ ok?: true; error?:
       : { completedAt: null, completedById: null };
     const t = await prisma.task.update({ where: { id: p.id }, data: { ...data, ...completion } });
     await audit(user.id, "UPDATE", "Task", p.id, data.title);
+    await logActivity({
+      actorId: user.id, action: "UPDATED", entityType: "TASK", entityId: t.id,
+      summary: `Updated task “${data.title}”`, dealId: t.dealId, companyId: t.companyId, contactId: t.contactId,
+    });
     revalidateTaskAnchors(t);
     return { ok: true };
   }
@@ -569,6 +652,10 @@ export async function saveTask(formData: FormData): Promise<{ ok?: true; error?:
     },
   });
   await audit(user.id, "CREATE", "Task", t.id, data.title);
+  await logActivity({
+    actorId: user.id, action: "CREATED", entityType: "TASK", entityId: t.id,
+    summary: `Created task “${data.title}”`, dealId: t.dealId, companyId: t.companyId, contactId: t.contactId,
+  });
   revalidateTaskAnchors(t);
   return { ok: true };
 }
@@ -588,6 +675,12 @@ export async function updateTaskStatus(id: string, status: string) {
     },
   });
   await audit(user.id, "UPDATE", "Task", id, `status → ${status}`);
+  await logActivity({
+    actorId: user.id, action: done ? "COMPLETED" : "UPDATED", entityType: "TASK", entityId: id,
+    summary: done ? `Completed task “${t.title}”` : `Set task “${t.title}” to ${status}`,
+    field: "status", previousValue: t.status, newValue: status,
+    dealId: updated.dealId, companyId: updated.companyId, contactId: updated.contactId,
+  });
   revalidateTaskAnchors(updated);
   return { ok: true };
 }
@@ -607,6 +700,11 @@ export async function toggleTaskDone(id: string) {
     },
   });
   await audit(user.id, "UPDATE", "Task", id, done ? "completed" : "reopened");
+  await logActivity({
+    actorId: user.id, action: done ? "COMPLETED" : "REOPENED", entityType: "TASK", entityId: id,
+    summary: done ? `Completed task “${t.title}”` : `Reopened task “${t.title}”`,
+    dealId: updated.dealId, companyId: updated.companyId, contactId: updated.contactId,
+  });
   revalidateTaskAnchors(updated);
 }
 
@@ -616,5 +714,9 @@ export async function deleteTask(id: string) {
   if (!t) return;
   await prisma.task.delete({ where: { id } });
   await audit(user.id, "DELETE", "Task", id, t.title);
+  await logActivity({
+    actorId: user.id, action: "DELETED", entityType: "TASK", entityId: id,
+    summary: `Deleted task “${t.title}”`, dealId: t.dealId, companyId: t.companyId, contactId: t.contactId,
+  });
   revalidateTaskAnchors(t);
 }

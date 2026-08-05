@@ -1,10 +1,10 @@
 import { redirect, notFound } from "next/navigation";
-import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEdit } from "@/lib/auth";
 import { DeleteButton } from "@/components/DeleteButton";
 import { ContactRecordView } from "@/components/crm/ContactRecordView";
 import { toTaskItem } from "@/lib/tasks";
+import { toAuditItem, toNoteItem } from "@/lib/crm-feed";
 import { deleteContact } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +18,10 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
     where: { id: params.id },
     include: {
       activities: {
-        orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+        orderBy: { createdAt: "desc" },
+        include: { comments: { orderBy: { createdAt: "asc" } } },
       },
+      noteEntries: { orderBy: { createdAt: "desc" } },
       tasks: { orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }] },
     },
   });
@@ -30,19 +32,11 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
     prisma.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
-  const activities = contact.activities.map((a) => ({
-    id: a.id,
-    type: a.type,
-    subject: a.subject,
-    body: a.body,
-    status: a.status,
-    whenLabel: format(a.occurredAt, "d MMM yyyy"),
-    dueLabel: a.dueDate ? format(a.dueDate, "d MMM yyyy") : null,
-    contactName: null,
-  }));
-
   const userNameMap = new Map(users.map((u) => [u.id, u.name]));
-  const taskItems = contact.tasks.map((t) => toTaskItem(t, (id) => (id ? userNameMap.get(id) ?? "—" : null)));
+  const userName = (id: string | null) => (id ? userNameMap.get(id) ?? "—" : null);
+  const taskItems = contact.tasks.map((t) => toTaskItem(t, userName));
+  const auditItems = contact.activities.map((a) => toAuditItem(a, userName));
+  const noteItems = contact.noteEntries.map((n) => toNoteItem(n, userName));
 
   const fullName = `${contact.firstName} ${contact.lastName}`.trim();
 
@@ -74,7 +68,8 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
         }}
         companies={companies}
         users={users}
-        activities={activities}
+        auditItems={auditItems}
+        noteItems={noteItems}
         taskItems={taskItems}
         editable={editable}
       />
