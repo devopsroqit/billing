@@ -1,15 +1,12 @@
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEdit } from "@/lib/auth";
-import { DeleteButton } from "@/components/DeleteButton";
 import { DocumentForm, DeleteDocButton } from "@/components/DocumentForm";
 import { DealRecordView } from "@/components/crm/DealRecordView";
 import { toTaskItem } from "@/lib/tasks";
 import { toAuditItem, toNoteItem } from "@/lib/crm-feed";
 import { isTaskClosed } from "@/lib/constants";
-import { deleteDeal, markDealInactive, markProjectCompleted } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -103,28 +100,6 @@ export default async function DealDetailPage({ params }: { params: { id: string 
 
   return (
     <div>
-      {editable && (
-        <div className="mb-3 flex flex-wrap items-center justify-end gap-3">
-          <Link href={`/crm/deals/${deal.id}/edit`} className="text-xs font-medium text-muted hover:underline">Edit deal</Link>
-          <form action={markProjectCompleted.bind(null, deal.id)}>
-            <button className="text-xs font-medium text-brand-600 hover:underline">
-              {deal.projectCompletedAt ? "Reopen project" : "Mark project completed"}
-            </button>
-          </form>
-          <form action={markDealInactive.bind(null, deal.id)}>
-            <button className="text-xs font-medium text-muted hover:underline">
-              {deal.active ? "Mark inactive" : "Reactivate"}
-            </button>
-          </form>
-          <DeleteButton
-            action={deleteDeal.bind(null, deal.id)}
-            label="Delete"
-            className="text-xs font-medium text-red-600 hover:underline"
-            confirmText={`Delete ${deal.title}? This can't be undone. Activities on the deal are removed.`}
-          />
-        </div>
-      )}
-
       <DealRecordView
         deal={{
           id: deal.id,
