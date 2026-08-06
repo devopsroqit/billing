@@ -87,7 +87,7 @@ export function ContactRecordView({
         )}
       </div>
 
-      <aside className="card mt-6 shrink-0 p-5 lg:mt-0 lg:w-80 lg:self-start">
+      <aside className="card mt-6 shrink-0 p-5 lg:mt-0 lg:w-80">
         {editable && (
           <div className="mb-3 flex justify-end">
             <ContactActions contactId={contact.id} name={fullName || "this contact"} />
