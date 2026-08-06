@@ -467,8 +467,8 @@ export async function saveSupplier(formData: FormData) {
     const c = await prisma.supplier.create({ data });
     await audit(user.id, "CREATE", "Supplier", c.id, data.name);
   }
-  revalidatePath("/suppliers");
-  redirect("/suppliers");
+  revalidatePath("/procurement");
+  redirect("/procurement?tab=suppliers");
 }
 
 export async function toggleSupplierActive(id: string) {
@@ -477,7 +477,7 @@ export async function toggleSupplierActive(id: string) {
   if (!s) return;
   await prisma.supplier.update({ where: { id }, data: { active: !s.active } });
   await audit(user.id, s.active ? "DEACTIVATE" : "ACTIVATE", "Supplier", id, s.name);
-  revalidatePath("/suppliers");
+  revalidatePath("/procurement");
 }
 
 export async function deleteSupplier(id: string) {
@@ -489,8 +489,8 @@ export async function deleteSupplier(id: string) {
   // so no history is lost.
   await prisma.supplier.delete({ where: { id } });
   await audit(user.id, "DELETE", "Supplier", id, s.name);
-  revalidatePath("/suppliers");
-  redirect("/suppliers");
+  revalidatePath("/procurement");
+  redirect("/procurement?tab=suppliers");
 }
 
 // --- Purchases -------------------------------------------------------------
@@ -526,7 +526,7 @@ export async function savePurchase(formData: FormData) {
     id = c.id;
     await audit(user.id, "CREATE", "Purchase", c.id, data.reference ?? "");
   }
-  revalidatePath("/purchases");
+  revalidatePath("/procurement");
   redirect(`/purchases/${id}`);
 }
 
@@ -536,8 +536,8 @@ export async function deletePurchase(id: string) {
   if (!p) return;
   await prisma.purchase.delete({ where: { id } });
   await audit(user.id, "DELETE", "Purchase", id, p.reference ?? "");
-  revalidatePath("/purchases");
-  redirect("/purchases");
+  revalidatePath("/procurement");
+  redirect("/procurement?tab=purchases");
 }
 
 // --- Devices ---------------------------------------------------------------

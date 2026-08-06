@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewPurchasePage({ searchParams }: { searchParams: { supplierId?: string } }) {
   const user = await getSessionUser();
-  if (!user || !canEdit(user.role)) redirect("/purchases");
+  if (!user || !canEdit(user.role)) redirect("/procurement?tab=purchases");
 
   const suppliers = await prisma.supplier.findMany({
     where: { active: true },

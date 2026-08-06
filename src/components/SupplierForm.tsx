@@ -71,7 +71,7 @@ export function SupplierForm({ supplier }: { supplier?: SupplierData }) {
 
       <div className="flex items-center gap-3">
         <button className="btn-primary" type="submit">{supplier ? "Save changes" : "Create supplier"}</button>
-        <a className="btn-secondary" href="/suppliers">Cancel</a>
+        <a className="btn-secondary" href="/procurement?tab=suppliers">Cancel</a>
       </div>
     </form>
   );

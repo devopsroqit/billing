@@ -37,7 +37,7 @@ export default async function PurchaseDetailPage({ params }: { params: { id: str
         subtitle={`${purchase.supplier?.name ?? "No supplier"} · ${formatMoneyCompact(purchase.amountMinor, purchase.currency as Currency)} · qty ${purchase.quantity}`}
         action={
           <div className="flex gap-2">
-            <Link href="/purchases" className="btn-secondary">Back</Link>
+            <Link href="/procurement?tab=purchases" className="btn-secondary">Back</Link>
             {editable && <DeleteButton action={deletePurchase.bind(null, purchase.id)} label="Delete purchase" confirmText="Delete this purchase? Devices linked to it are kept." />}
           </div>
         }

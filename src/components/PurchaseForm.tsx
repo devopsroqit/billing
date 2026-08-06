@@ -71,7 +71,7 @@ export function PurchaseForm({
 
       <div className="flex items-center gap-3">
         <button className="btn-primary" type="submit">{purchase ? "Save changes" : "Create purchase"}</button>
-        <a className="btn-secondary" href="/purchases">Cancel</a>
+        <a className="btn-secondary" href="/procurement?tab=purchases">Cancel</a>
       </div>
     </form>
   );
