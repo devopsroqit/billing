@@ -185,7 +185,7 @@ export function DealRecordView({
       </div>
 
       {/* RIGHT RAIL */}
-      <aside className="mt-6 shrink-0 border-t border-border pt-6 lg:mt-0 lg:w-80 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+      <aside className="card mt-6 shrink-0 p-5 lg:mt-0 lg:w-80 lg:self-start">
         <div className="mb-4 flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/15 text-sm font-semibold text-brand-600">
             {initials}
