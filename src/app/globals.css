@@ -2,16 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Semantic color tokens (space-separated RGB, consumed via rgb(var(--x)/a)). */
+/* Semantic color tokens (space-separated RGB, consumed via rgb(var(--x)/a)).
+   Neutral (zinc) grays for a clean, Frappe-style look — no blue tint. */
 :root {
   color-scheme: light;
-  --bg: 248 250 252; /* slate-50 */
-  --surface: 255 255 255; /* white */
-  --surface-2: 241 245 249; /* slate-100 — table headers, hover, insets */
-  --border: 226 232 240; /* slate-200 */
-  --fg: 15 23 42; /* slate-900 */
-  --muted: 100 116 139; /* slate-500 */
-  --faint: 148 163 184; /* slate-400 */
+  --bg: 250 250 250; /* zinc-50 — page background */
+  --surface: 255 255 255; /* white — cards, inputs */
+  --surface-2: 244 244 245; /* zinc-100 — table headers, hover, insets */
+  --border: 228 228 231; /* zinc-200 — thin neutral borders */
+  --fg: 24 24 27; /* zinc-900 — text */
+  --muted: 113 113 122; /* zinc-500 */
+  --faint: 161 161 170; /* zinc-400 */
 }
 
 .dark {
@@ -69,7 +70,7 @@ body {
     @apply btn bg-green-600 text-white hover:bg-green-700;
   }
   .card {
-    @apply rounded-xl border border-border bg-surface shadow-card;
+    @apply rounded-lg border border-border bg-surface shadow-card;
   }
   .input {
     @apply block w-full rounded-lg border-0 bg-surface px-3 py-2 text-sm text-fg ring-1 ring-inset ring-border placeholder:text-faint focus:ring-2 focus:ring-inset focus:ring-brand-600;

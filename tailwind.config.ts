@@ -26,11 +26,12 @@ const config: Config = {
         faint: "rgb(var(--faint) / <alpha-value>)",
       },
       fontFamily: {
-        sans: ["ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
+        // Inter (loaded in layout.tsx) with a system fallback — Frappe's typeface.
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
       },
       boxShadow: {
-        sm: "0 1px 2px 0 rgb(15 23 42 / 0.05)",
-        card: "0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04)",
+        sm: "0 1px 2px 0 rgb(24 24 27 / 0.05)",
+        card: "0 1px 2px 0 rgb(24 24 27 / 0.06)",
       },
     },
   },
