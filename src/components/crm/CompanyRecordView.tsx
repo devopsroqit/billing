@@ -8,6 +8,7 @@ import { InlineField } from "@/components/crm/InlineField";
 import { ActivityAuditFeed, type ActivityAuditItem } from "@/components/crm/ActivityAuditFeed";
 import { NotePanel, type NoteItem } from "@/components/crm/NotePanel";
 import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
+import { CompanyActions } from "@/components/crm/CompanyActions";
 import {
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_LABELS,
@@ -39,6 +40,7 @@ export type CompanyData = {
   phone: string | null;
   gstin: string | null;
   ownerId: string | null;
+  active: boolean;
 };
 
 const TABS = ["Activity", "Notes", "Tasks", "Contacts", "Deals"] as const;
@@ -167,6 +169,11 @@ export function CompanyRecordView({
 
       {/* RIGHT RAIL — record details, inline-editable */}
       <aside className="card mt-6 shrink-0 p-5 lg:mt-0 lg:w-80 lg:self-start">
+        {editable && (
+          <div className="mb-3 flex justify-end">
+            <CompanyActions companyId={company.id} name={company.name} active={company.active} />
+          </div>
+        )}
         <div className="mb-4 flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/15 text-sm font-semibold text-brand-600">
             {initials}

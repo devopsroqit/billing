@@ -3,11 +3,9 @@ import { prisma } from "@/lib/db";
 import { getSessionUser, canEdit } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { DEAL_STAGE_LABELS, type DealStage, type Currency } from "@/lib/constants";
-import { DeleteButton } from "@/components/DeleteButton";
 import { CompanyRecordView } from "@/components/crm/CompanyRecordView";
 import { toTaskItem } from "@/lib/tasks";
 import { toAuditItem, toNoteItem } from "@/lib/crm-feed";
-import { deleteCompany, toggleCompanyActive } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -62,20 +60,6 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
 
   return (
     <div>
-      {editable && (
-        <div className="mb-3 flex items-center justify-end gap-2">
-          <form action={toggleCompanyActive.bind(null, company.id)}>
-            <button className="text-xs font-medium text-muted hover:underline">{company.active ? "Deactivate" : "Activate"}</button>
-          </form>
-          <DeleteButton
-            action={deleteCompany.bind(null, company.id)}
-            label="Delete"
-            className="text-xs font-medium text-red-600 hover:underline"
-            confirmText={`Delete ${company.name}? This can't be undone. Contacts and deals are kept (unlinked); activities are removed.`}
-          />
-        </div>
-      )}
-
       <CompanyRecordView
         company={{
           id: company.id,
@@ -92,6 +76,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
           phone: company.phone,
           gstin: company.gstin,
           ownerId: company.ownerId,
+          active: company.active,
         }}
         users={users}
         auditItems={auditItems}
