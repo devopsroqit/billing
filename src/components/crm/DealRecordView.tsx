@@ -9,6 +9,7 @@ import { ActivityAuditFeed, type ActivityAuditItem } from "@/components/crm/Acti
 import { NotePanel, type NoteItem } from "@/components/crm/NotePanel";
 import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
 import { ContributorsPanel } from "@/components/crm/ContributorsPanel";
+import { DealActions } from "@/components/crm/DealActions";
 import { majorToMinor, minorToMajor, formatMoney } from "@/lib/money";
 import {
   DEAL_STAGES,
@@ -186,6 +187,11 @@ export function DealRecordView({
 
       {/* RIGHT RAIL */}
       <aside className="card mt-6 shrink-0 p-5 lg:mt-0 lg:w-80 lg:self-start">
+        {editable && (
+          <div className="mb-3 flex justify-end">
+            <DealActions dealId={deal.id} title={deal.title} active={deal.active} projectCompleted={!!deal.projectCompletedLabel} />
+          </div>
+        )}
         <div className="mb-4 flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/15 text-sm font-semibold text-brand-600">
             {initials}
