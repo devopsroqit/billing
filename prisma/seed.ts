@@ -13,6 +13,7 @@ async function main() {
   console.log("Seeding roqit Billing (recurring-payment tracker)…");
 
   // Wipe (order matters due to FKs)
+  await prisma.notification.deleteMany();
   await prisma.emailOutbox.deleteMany();
   await prisma.document.deleteMany();
   await prisma.paymentEntry.deleteMany();
@@ -399,6 +400,14 @@ async function main() {
       priority: "HIGH", status: "TODO", dueAt: d(2026, 7, 20),
       assigneeExternal: "legal@coastalcc.example", companyId: coastal.id, createdById: admin.id,
     },
+  });
+
+  // Notifications (in-app) — demo for the editor.
+  await prisma.notification.createMany({
+    data: [
+      { userId: editor.id, type: "TAGGED", title: "Admin mentioned you", body: "Nice work — keep the momentum.", link: `/crm/deals/${greenfleetDeal.id}`, entityType: "DEAL", entityId: greenfleetDeal.id },
+      { userId: editor.id, type: "CONTRIBUTOR_ADDED", title: "You were added to “Fleet pilot — 50 trackers”", link: `/crm/deals/${greenfleetDeal.id}`, entityType: "DEAL", entityId: greenfleetDeal.id, readAt: new Date() },
+    ],
   });
 
   await prisma.auditLog.create({

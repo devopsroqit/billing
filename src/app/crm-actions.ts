@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { getSessionUser, logout, assertCanEdit } from "@/lib/auth";
 import { majorToMinor } from "@/lib/money";
 import { logActivity, parseMentions } from "@/lib/activity";
+import { notify, notifyMany, resolveMentions } from "@/lib/notify";
 import {
   RELATIONSHIP_TYPES,
   COMPANY_SOURCES,
@@ -465,6 +466,7 @@ export async function markDealInactive(id: string) {
     summary: d.active ? `Marked deal inactive` : `Reactivated deal`, dealStage: d.stage,
     dealId: id, companyId: d.companyId,
   });
+  if (d.active) await notifyDealTeam(id, d.ownerId, user.id, "DEAL_INACTIVE", `Deal “${d.title}” was marked inactive`);
   revalidatePath("/crm/deals");
   revalidatePath(`/crm/deals/${id}`);
 }
@@ -482,6 +484,7 @@ export async function markProjectCompleted(id: string) {
     summary: done ? `Marked project completed` : `Reopened project`, dealStage: d.stage,
     dealId: id, companyId: d.companyId,
   });
+  if (done) await notifyDealTeam(id, d.ownerId, user.id, "PROJECT_COMPLETED", `Project “${d.title}” was marked completed`);
   revalidatePath("/crm/deals");
   revalidatePath(`/crm/deals/${id}`);
 }
@@ -498,7 +501,7 @@ async function userLabel(id: string | null): Promise<string> {
 // Change the single primary owner of a deal.
 export async function changeDealOwner(dealId: string, userId: string) {
   const user = await requireEditor();
-  const before = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true } });
+  const before = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true, title: true } });
   if (!before) return { error: "Deal not found." };
   const newOwner = orNull(userId);
   await prisma.deal.update({ where: { id: dealId }, data: { ownerId: newOwner } });
@@ -511,7 +514,9 @@ export async function changeDealOwner(dealId: string, userId: string) {
     summary: `Changed owner to ${newName}`, field: "ownerId", previousValue: prevName, newValue: newName,
     dealStage: before.stage, dealId, companyId: before.companyId,
   });
-  // TODO(Phase 5): notify previous and new owner.
+  const link = `/crm/deals/${dealId}`;
+  if (newOwner) await notify({ actorId: user.id, userId: newOwner, type: "OWNER_CHANGED", title: `You’re now the owner of “${before.title}”`, link, entityType: "DEAL", entityId: dealId });
+  await notify({ actorId: user.id, userId: before.ownerId, type: "OWNER_CHANGED", title: `Ownership of “${before.title}” moved to ${newName}`, link, entityType: "DEAL", entityId: dealId });
   revalidatePath("/crm/deals");
   revalidatePath(`/crm/deals/${dealId}`);
   return { ok: true };
@@ -521,7 +526,7 @@ export async function changeDealOwner(dealId: string, userId: string) {
 export async function promoteContributor(dealId: string, userId: string) {
   const user = await requireEditor();
   if (!orNull(userId)) return { error: "Pick a contributor." };
-  const before = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true } });
+  const before = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true, title: true } });
   if (!before) return { error: "Deal not found." };
   await prisma.$transaction([
     prisma.deal.update({ where: { id: dealId }, data: { ownerId: userId } }),
@@ -541,6 +546,9 @@ export async function promoteContributor(dealId: string, userId: string) {
     summary: `Promoted ${newName} to owner`, field: "ownerId", previousValue: prevName, newValue: newName,
     dealStage: before.stage, dealId, companyId: before.companyId,
   });
+  const link = `/crm/deals/${dealId}`;
+  await notify({ actorId: user.id, userId, type: "OWNER_CHANGED", title: `You’re now the owner of “${before.title}”`, link, entityType: "DEAL", entityId: dealId });
+  await notify({ actorId: user.id, userId: before.ownerId, type: "OWNER_CHANGED", title: `You’re now a contributor on “${before.title}”`, link, entityType: "DEAL", entityId: dealId });
   revalidatePath("/crm/deals");
   revalidatePath(`/crm/deals/${dealId}`);
   return { ok: true };
@@ -549,7 +557,7 @@ export async function promoteContributor(dealId: string, userId: string) {
 export async function addDealContributor(dealId: string, userId: string) {
   const user = await requireEditor();
   if (!orNull(userId)) return { error: "Pick a team member." };
-  const deal = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true } });
+  const deal = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true, title: true } });
   if (!deal) return { error: "Deal not found." };
   if (deal.ownerId === userId) return { error: "That member is already the primary owner." };
   await prisma.dealContributor.upsert({
@@ -563,14 +571,14 @@ export async function addDealContributor(dealId: string, userId: string) {
     actorId: user.id, action: "CONTRIBUTOR_ADDED", entityType: "COLLABORATOR", entityId: dealId,
     summary: `Added ${name} as a contributor`, newValue: name, dealStage: deal.stage, dealId, companyId: deal.companyId,
   });
-  // TODO(Phase 5): notify the added contributor.
+  await notify({ actorId: user.id, userId, type: "CONTRIBUTOR_ADDED", title: `You were added to “${deal.title}”`, link: `/crm/deals/${dealId}`, entityType: "DEAL", entityId: dealId });
   revalidatePath(`/crm/deals/${dealId}`);
   return { ok: true };
 }
 
 export async function removeDealContributor(dealId: string, userId: string) {
   const user = await requireEditor();
-  const deal = await prisma.deal.findUnique({ where: { id: dealId }, select: { companyId: true, stage: true } });
+  const deal = await prisma.deal.findUnique({ where: { id: dealId }, select: { companyId: true, stage: true, title: true } });
   if (!deal) return { error: "Deal not found." };
   await prisma.dealContributor.deleteMany({ where: { dealId, userId } });
   const name = await userLabel(userId);
@@ -579,9 +587,17 @@ export async function removeDealContributor(dealId: string, userId: string) {
     actorId: user.id, action: "CONTRIBUTOR_REMOVED", entityType: "COLLABORATOR", entityId: dealId,
     summary: `Removed ${name} as a contributor`, previousValue: name, dealStage: deal.stage, dealId, companyId: deal.companyId,
   });
-  // TODO(Phase 5): notify the removed contributor.
+  await notify({ actorId: user.id, userId, type: "CONTRIBUTOR_REMOVED", title: `You were removed from “${deal.title}”`, link: `/crm/deals/${dealId}`, entityType: "DEAL", entityId: dealId });
   revalidatePath(`/crm/deals/${dealId}`);
   return { ok: true };
+}
+
+// Notify a deal's owner + contributors of a lifecycle event (skips the actor).
+async function notifyDealTeam(dealId: string, ownerId: string | null, actorId: string, type: string, title: string) {
+  const contributors = await prisma.dealContributor.findMany({ where: { dealId }, select: { userId: true } });
+  await notifyMany([ownerId, ...contributors.map((c) => c.userId)], {
+    actorId, type, title, link: `/crm/deals/${dealId}`, entityType: "DEAL", entityId: dealId,
+  });
 }
 
 // ===========================================================================
@@ -649,9 +665,18 @@ export async function addActivityComment(input: { activityId: string; body: stri
       authorId: user.id,
     },
   });
-  // Mentions → notifications are wired in the Notifications phase; parsed here.
-  parseMentions(body);
   await audit(user.id, "COMMENT", "Activity", input.activityId, body.slice(0, 60));
+  // @mentions → in-app + email notifications.
+  const handles = parseMentions(body);
+  if (handles.length) {
+    const roster = await prisma.user.findMany({ where: { active: true }, select: { id: true, name: true, email: true } });
+    const mentioned = resolveMentions(handles, roster);
+    const link = activity.dealId ? `/crm/deals/${activity.dealId}` : activity.companyId ? `/crm/companies/${activity.companyId}` : activity.contactId ? `/crm/contacts/${activity.contactId}` : undefined;
+    await notifyMany(mentioned, {
+      actorId: user.id, type: "TAGGED", title: `${user.name} mentioned you`,
+      body: body.slice(0, 200), link, entityType: "COMMENT", entityId: input.activityId,
+    });
+  }
   if (activity.companyId) revalidatePath(`/crm/companies/${activity.companyId}`);
   if (activity.contactId) revalidatePath(`/crm/contacts/${activity.contactId}`);
   if (activity.dealId) revalidatePath(`/crm/deals/${activity.dealId}`);
@@ -736,6 +761,10 @@ export async function saveTask(formData: FormData): Promise<{ ok?: true; error?:
       actorId: user.id, action: "UPDATED", entityType: "TASK", entityId: t.id,
       summary: `Updated task “${data.title}”`, dealId: t.dealId, companyId: t.companyId, contactId: t.contactId,
     });
+    // Notify the assignee if they were newly assigned to this task.
+    if (t.assigneeUserId && t.assigneeUserId !== before?.assigneeUserId) {
+      await notify({ actorId: user.id, userId: t.assigneeUserId, type: "TASK_ASSIGNED", title: `${user.name} assigned you a task`, body: t.title, link: taskLink(t), entityType: "TASK", entityId: t.id });
+    }
     revalidateTaskAnchors(t);
     return { ok: true };
   }
@@ -754,8 +783,19 @@ export async function saveTask(formData: FormData): Promise<{ ok?: true; error?:
     actorId: user.id, action: "CREATED", entityType: "TASK", entityId: t.id,
     summary: `Created task “${data.title}”`, dealId: t.dealId, companyId: t.companyId, contactId: t.contactId,
   });
+  if (t.assigneeUserId) {
+    await notify({ actorId: user.id, userId: t.assigneeUserId, type: "TASK_ASSIGNED", title: `${user.name} assigned you a task`, body: t.title, link: taskLink(t), entityType: "TASK", entityId: t.id });
+  }
   revalidateTaskAnchors(t);
   return { ok: true };
+}
+
+// A task's in-app link — its anchor record, else the global task list.
+function taskLink(t: { dealId: string | null; companyId: string | null; contactId: string | null }): string {
+  if (t.dealId) return `/crm/deals/${t.dealId}`;
+  if (t.companyId) return `/crm/companies/${t.companyId}`;
+  if (t.contactId) return `/crm/contacts/${t.contactId}`;
+  return "/crm/tasks";
 }
 
 export async function updateTaskStatus(id: string, status: string) {
@@ -779,6 +819,9 @@ export async function updateTaskStatus(id: string, status: string) {
     field: "status", previousValue: t.status, newValue: status,
     dealId: updated.dealId, companyId: updated.companyId, contactId: updated.contactId,
   });
+  if (done) {
+    await notify({ actorId: user.id, userId: t.createdById, type: "TASK_COMPLETED", title: `${user.name} completed a task`, body: t.title, link: taskLink(updated), entityType: "TASK", entityId: id });
+  }
   revalidateTaskAnchors(updated);
   return { ok: true };
 }
@@ -803,6 +846,9 @@ export async function toggleTaskDone(id: string) {
     summary: done ? `Completed task “${t.title}”` : `Reopened task “${t.title}”`,
     dealId: updated.dealId, companyId: updated.companyId, contactId: updated.contactId,
   });
+  if (done) {
+    await notify({ actorId: user.id, userId: t.createdById, type: "TASK_COMPLETED", title: `${user.name} completed a task`, body: t.title, link: taskLink(updated), entityType: "TASK", entityId: id });
+  }
   revalidateTaskAnchors(updated);
 }
 
@@ -817,4 +863,19 @@ export async function deleteTask(id: string) {
     summary: `Deleted task “${t.title}”`, dealId: t.dealId, companyId: t.companyId, contactId: t.contactId,
   });
   revalidateTaskAnchors(t);
+}
+
+// ===========================================================================
+// Notifications (recipient-only read state)
+// ===========================================================================
+export async function markNotificationRead(id: string) {
+  const user = await requireUser();
+  await prisma.notification.updateMany({ where: { id, userId: user.id, readAt: null }, data: { readAt: new Date() } });
+  revalidatePath("/notifications");
+}
+
+export async function markAllNotificationsRead() {
+  const user = await requireUser();
+  await prisma.notification.updateMany({ where: { userId: user.id, readAt: null }, data: { readAt: new Date() } });
+  revalidatePath("/notifications");
 }
