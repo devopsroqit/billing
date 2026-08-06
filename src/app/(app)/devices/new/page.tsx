@@ -15,9 +15,10 @@ export default async function NewDevicePage({
   const user = await getSessionUser();
   if (!user || !canEdit(user.role)) redirect("/devices");
 
-  const [suppliers, purchases] = await Promise.all([
+  const [suppliers, purchases, deals] = await Promise.all([
     prisma.supplier.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.purchase.findMany({ orderBy: { purchaseDate: "desc" }, include: { supplier: true }, take: 200 }),
+    prisma.deal.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, title: true }, take: 500 }),
   ]);
 
   return (
@@ -29,6 +30,7 @@ export default async function NewDevicePage({
           id: p.id,
           label: `${p.reference || format(p.purchaseDate, "d MMM yyyy")}${p.supplier ? ` · ${p.supplier.name}` : ""}`,
         }))}
+        deals={deals.map((d) => ({ id: d.id, label: d.title }))}
         defaultPurchaseId={searchParams.purchaseId}
         defaultSupplierId={searchParams.supplierId}
       />
