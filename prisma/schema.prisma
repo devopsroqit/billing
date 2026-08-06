@@ -395,15 +395,31 @@ model Deal {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  company        Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  primaryContact Contact?   @relation("DealPrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+  company        Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  primaryContact Contact?          @relation("DealPrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
   activities     Activity[]
   documents      Document[]
   tasks          Task[]
   noteEntries    Note[]
+  contributors   DealContributor[]
 
   @@index([stage])
   @@index([companyId])
+}
+
+// A contributor on a deal — a team member collaborating alongside the single
+// primary owner (Deal.ownerId). userId is a bare User id (resolved to a name in
+// the UI), matching the owner/creator convention.
+model DealContributor {
+  id        String   @id @default(cuid())
+  dealId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, userId])
+  @@index([userId])
 }
 
 // A read-only system audit log entry — the single source of truth for the
