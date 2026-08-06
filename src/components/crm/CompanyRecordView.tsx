@@ -168,7 +168,7 @@ export function CompanyRecordView({
       </div>
 
       {/* RIGHT RAIL — record details, inline-editable */}
-      <aside className="card mt-6 shrink-0 p-5 lg:mt-0 lg:w-80 lg:self-start">
+      <aside className="card mt-6 shrink-0 p-5 lg:mt-0 lg:w-80">
         {editable && (
           <div className="mb-3 flex justify-end">
             <CompanyActions companyId={company.id} name={company.name} active={company.active} />
