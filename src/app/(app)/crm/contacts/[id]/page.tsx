@@ -1,11 +1,9 @@
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEdit } from "@/lib/auth";
-import { DeleteButton } from "@/components/DeleteButton";
 import { ContactRecordView } from "@/components/crm/ContactRecordView";
 import { toTaskItem } from "@/lib/tasks";
 import { toAuditItem, toNoteItem } from "@/lib/crm-feed";
-import { deleteContact } from "@/app/crm-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -38,21 +36,8 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
   const auditItems = contact.activities.map((a) => toAuditItem(a, userName));
   const noteItems = contact.noteEntries.map((n) => toNoteItem(n, userName));
 
-  const fullName = `${contact.firstName} ${contact.lastName}`.trim();
-
   return (
     <div>
-      {editable && (
-        <div className="mb-3 flex items-center justify-end gap-2">
-          <DeleteButton
-            action={deleteContact.bind(null, contact.id)}
-            label="Delete"
-            className="text-xs font-medium text-red-600 hover:underline"
-            confirmText={`Delete ${fullName}? This can't be undone.`}
-          />
-        </div>
-      )}
-
       <ContactRecordView
         contact={{
           id: contact.id,

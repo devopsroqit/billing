@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { InlineField } from "@/components/crm/InlineField";
+import { ContactActions } from "@/components/crm/ContactActions";
 import { ActivityAuditFeed, type ActivityAuditItem } from "@/components/crm/ActivityAuditFeed";
 import { NotePanel, type NoteItem } from "@/components/crm/NotePanel";
 import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
@@ -87,6 +88,11 @@ export function ContactRecordView({
       </div>
 
       <aside className="card mt-6 shrink-0 p-5 lg:mt-0 lg:w-80 lg:self-start">
+        {editable && (
+          <div className="mb-3 flex justify-end">
+            <ContactActions contactId={contact.id} name={fullName || "this contact"} />
+          </div>
+        )}
         <div className="mb-4 flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/15 text-sm font-semibold text-brand-600">
             {initials}
