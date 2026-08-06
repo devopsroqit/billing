@@ -36,6 +36,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
       tasks: {
         orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
       },
+      contributors: { orderBy: { createdAt: "asc" }, select: { userId: true } },
     },
   });
   if (!deal) notFound();
@@ -65,6 +66,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
   const taskItems = deal.tasks.map((t) => toTaskItem(t, userName));
   const auditItems = deal.activities.map((a) => toAuditItem(a, userName));
   const noteItems = deal.noteEntries.map((n) => toNoteItem(n, userName));
+  const contributorIds = deal.contributors.map((c) => c.userId);
 
   // Earliest open (not closed) task with a due date → the "Next due task" highlight.
   const nextTask = deal.tasks
@@ -151,6 +153,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
         noteItems={noteItems}
         taskItems={taskItems}
         people={people}
+        contributorIds={contributorIds}
         nextDueTaskLabel={nextDueTaskLabel}
         documentsSlot={documentsSlot}
         docCount={deal.documents.length}

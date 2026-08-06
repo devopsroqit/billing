@@ -22,6 +22,7 @@ async function main() {
   await prisma.note.deleteMany();
   await prisma.task.deleteMany();
   await prisma.activity.deleteMany();
+  await prisma.dealContributor.deleteMany();
   await prisma.deal.deleteMany();
   await prisma.contact.deleteMany();
   await prisma.company.deleteMany();
@@ -346,6 +347,10 @@ async function main() {
       companyId: coastal.id, authorId: admin.id,
     },
   });
+
+  // Deal contributors (collaboration) — greenfleet deal is owned by editor,
+  // with admin collaborating.
+  await prisma.dealContributor.create({ data: { dealId: greenfleetDeal.id, userId: admin.id } });
 
   // Activity audit log (read-only) + a threaded comment
   await prisma.activity.create({

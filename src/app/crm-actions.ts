@@ -487,6 +487,104 @@ export async function markProjectCompleted(id: string) {
 }
 
 // ===========================================================================
+// Deal ownership & collaboration (spec §5)
+// ===========================================================================
+async function userLabel(id: string | null): Promise<string> {
+  if (!id) return "Unassigned";
+  const u = await prisma.user.findUnique({ where: { id }, select: { name: true } });
+  return u?.name ?? "someone";
+}
+
+// Change the single primary owner of a deal.
+export async function changeDealOwner(dealId: string, userId: string) {
+  const user = await requireEditor();
+  const before = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true } });
+  if (!before) return { error: "Deal not found." };
+  const newOwner = orNull(userId);
+  await prisma.deal.update({ where: { id: dealId }, data: { ownerId: newOwner } });
+  // The new owner shouldn't also be listed as a contributor.
+  if (newOwner) await prisma.dealContributor.deleteMany({ where: { dealId, userId: newOwner } });
+  const [prevName, newName] = await Promise.all([userLabel(before.ownerId), userLabel(newOwner)]);
+  await audit(user.id, "OWNER_CHANGED", "Deal", dealId, `${prevName} → ${newName}`);
+  await logActivity({
+    actorId: user.id, action: "OWNER_CHANGED", entityType: "DEAL", entityId: dealId,
+    summary: `Changed owner to ${newName}`, field: "ownerId", previousValue: prevName, newValue: newName,
+    dealStage: before.stage, dealId, companyId: before.companyId,
+  });
+  // TODO(Phase 5): notify previous and new owner.
+  revalidatePath("/crm/deals");
+  revalidatePath(`/crm/deals/${dealId}`);
+  return { ok: true };
+}
+
+// Promote a contributor to primary owner; the previous owner becomes a contributor.
+export async function promoteContributor(dealId: string, userId: string) {
+  const user = await requireEditor();
+  if (!orNull(userId)) return { error: "Pick a contributor." };
+  const before = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true } });
+  if (!before) return { error: "Deal not found." };
+  await prisma.$transaction([
+    prisma.deal.update({ where: { id: dealId }, data: { ownerId: userId } }),
+    prisma.dealContributor.deleteMany({ where: { dealId, userId } }),
+    ...(before.ownerId && before.ownerId !== userId
+      ? [prisma.dealContributor.upsert({
+          where: { dealId_userId: { dealId, userId: before.ownerId } },
+          create: { dealId, userId: before.ownerId },
+          update: {},
+        })]
+      : []),
+  ]);
+  const [prevName, newName] = await Promise.all([userLabel(before.ownerId), userLabel(userId)]);
+  await audit(user.id, "OWNER_CHANGED", "Deal", dealId, `${prevName} → ${newName} (promoted)`);
+  await logActivity({
+    actorId: user.id, action: "OWNER_CHANGED", entityType: "DEAL", entityId: dealId,
+    summary: `Promoted ${newName} to owner`, field: "ownerId", previousValue: prevName, newValue: newName,
+    dealStage: before.stage, dealId, companyId: before.companyId,
+  });
+  revalidatePath("/crm/deals");
+  revalidatePath(`/crm/deals/${dealId}`);
+  return { ok: true };
+}
+
+export async function addDealContributor(dealId: string, userId: string) {
+  const user = await requireEditor();
+  if (!orNull(userId)) return { error: "Pick a team member." };
+  const deal = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true } });
+  if (!deal) return { error: "Deal not found." };
+  if (deal.ownerId === userId) return { error: "That member is already the primary owner." };
+  await prisma.dealContributor.upsert({
+    where: { dealId_userId: { dealId, userId } },
+    create: { dealId, userId },
+    update: {},
+  });
+  const name = await userLabel(userId);
+  await audit(user.id, "CONTRIBUTOR_ADDED", "Deal", dealId, name);
+  await logActivity({
+    actorId: user.id, action: "CONTRIBUTOR_ADDED", entityType: "COLLABORATOR", entityId: dealId,
+    summary: `Added ${name} as a contributor`, newValue: name, dealStage: deal.stage, dealId, companyId: deal.companyId,
+  });
+  // TODO(Phase 5): notify the added contributor.
+  revalidatePath(`/crm/deals/${dealId}`);
+  return { ok: true };
+}
+
+export async function removeDealContributor(dealId: string, userId: string) {
+  const user = await requireEditor();
+  const deal = await prisma.deal.findUnique({ where: { id: dealId }, select: { companyId: true, stage: true } });
+  if (!deal) return { error: "Deal not found." };
+  await prisma.dealContributor.deleteMany({ where: { dealId, userId } });
+  const name = await userLabel(userId);
+  await audit(user.id, "CONTRIBUTOR_REMOVED", "Deal", dealId, name);
+  await logActivity({
+    actorId: user.id, action: "CONTRIBUTOR_REMOVED", entityType: "COLLABORATOR", entityId: dealId,
+    summary: `Removed ${name} as a contributor`, previousValue: name, dealStage: deal.stage, dealId, companyId: deal.companyId,
+  });
+  // TODO(Phase 5): notify the removed contributor.
+  revalidatePath(`/crm/deals/${dealId}`);
+  return { ok: true };
+}
+
+// ===========================================================================
 // Notes (user-authored) — distinct from the read-only Activity audit log
 // ===========================================================================
 export async function saveNote(input: {

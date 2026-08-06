@@ -8,6 +8,7 @@ import { InlineField } from "@/components/crm/InlineField";
 import { ActivityAuditFeed, type ActivityAuditItem } from "@/components/crm/ActivityAuditFeed";
 import { NotePanel, type NoteItem } from "@/components/crm/NotePanel";
 import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
+import { ContributorsPanel } from "@/components/crm/ContributorsPanel";
 import { majorToMinor, minorToMajor, formatMoney } from "@/lib/money";
 import {
   DEAL_STAGES,
@@ -44,7 +45,7 @@ export type DealData = {
   projectCompletedLabel: string | null;
 };
 
-const TABS = ["Overview", "Activity", "Notes", "Tasks", "People", "Documents"] as const;
+const TABS = ["Overview", "Activity", "Notes", "Tasks", "People", "Team", "Documents"] as const;
 type Tab = (typeof TABS)[number];
 
 const fmtDate = (v: string) => {
@@ -60,6 +61,7 @@ export function DealRecordView({
   noteItems,
   taskItems,
   people,
+  contributorIds,
   nextDueTaskLabel,
   documentsSlot,
   docCount,
@@ -72,6 +74,7 @@ export function DealRecordView({
   noteItems: NoteItem[];
   taskItems: TaskItem[];
   people: PersonItem[];
+  contributorIds: string[];
   nextDueTaskLabel: string | null;
   documentsSlot: React.ReactNode;
   docCount: number;
@@ -101,7 +104,7 @@ export function DealRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? noteItems.length : t === "Tasks" ? taskItems.length : t === "People" ? people.length : t === "Activity" ? auditItems.length : t === "Documents" ? docCount : null;
+            const count = t === "Notes" ? noteItems.length : t === "Tasks" ? taskItems.length : t === "People" ? people.length : t === "Team" ? contributorIds.length + 1 : t === "Activity" ? auditItems.length : t === "Documents" ? docCount : null;
             return (
               <button
                 key={t}
@@ -172,6 +175,10 @@ export function DealRecordView({
               </div>
             )}
           </div>
+        )}
+
+        {tab === "Team" && (
+          <ContributorsPanel dealId={deal.id} ownerId={deal.ownerId} contributorIds={contributorIds} users={users} editable={editable} />
         )}
 
         {tab === "Documents" && <div className="space-y-3">{documentsSlot}</div>}
