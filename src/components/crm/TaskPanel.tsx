@@ -23,6 +23,10 @@ export type TaskItem = {
   dueLabel: string | null;
   overdue: boolean;
   completedLabel: string | null;
+  // Raw values for the inline edit form.
+  assigneeUserId: string | null;
+  assigneeExternal: string | null;
+  dueAtInput: string | null;
 };
 
 type Option = { id: string; name: string };
@@ -41,25 +45,7 @@ export function TaskPanel({
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
-  const [pending, start] = useTransition();
-  const [error, setError] = useState("");
-
-  function onCreate(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError("");
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    start(async () => {
-      const r = await saveTask(fd);
-      if (r && "error" in r && r.error) {
-        setError(r.error);
-      } else {
-        form.reset();
-        setAdding(false);
-        router.refresh();
-      }
-    });
-  }
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const refresh = () => router.refresh();
 
@@ -68,53 +54,12 @@ export function TaskPanel({
       {editable && (
         <div>
           {adding ? (
-            <form onSubmit={onCreate} className="card space-y-3 p-4">
-              {anchor.dealId && <input type="hidden" name="dealId" value={anchor.dealId} />}
-              {anchor.companyId && <input type="hidden" name="companyId" value={anchor.companyId} />}
-              {anchor.contactId && <input type="hidden" name="contactId" value={anchor.contactId} />}
-              <input className="input" name="title" placeholder="Task title" required />
-              <textarea className="input" name="description" rows={2} placeholder="Description (optional)" />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="label">Assignee (internal)</label>
-                  <select className="input" name="assigneeUserId" defaultValue="">
-                    <option value="">— None —</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">…or external assignee</label>
-                  <input className="input" name="assigneeExternal" placeholder="Name / email" />
-                </div>
-                <div>
-                  <label className="label">Priority</label>
-                  <select className="input" name="priority" defaultValue="MEDIUM">
-                    {TASK_PRIORITIES.map((p) => (
-                      <option key={p} value={p}>{TASK_PRIORITY_LABELS[p]}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Status</label>
-                  <select className="input" name="status" defaultValue="TODO">
-                    {TASK_STATUSES.map((s) => (
-                      <option key={s} value={s}>{TASK_STATUS_LABELS[s]}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="label">Due date &amp; time</label>
-                  <input className="input" name="dueAt" type="datetime-local" />
-                </div>
-              </div>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <div className="flex items-center gap-2">
-                <button className="btn-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Add task"}</button>
-                <button className="btn-secondary" type="button" onClick={() => { setAdding(false); setError(""); }}>Cancel</button>
-              </div>
-            </form>
+            <TaskForm
+              users={users}
+              anchor={anchor}
+              onSaved={() => { setAdding(false); refresh(); }}
+              onCancel={() => setAdding(false)}
+            />
           ) : (
             <button className="btn-primary inline-flex" onClick={() => setAdding(true)}>＋ Add task</button>
           )}
@@ -126,6 +71,19 @@ export function TaskPanel({
       ) : (
         <div className="card divide-y divide-border">
           {tasks.map((t) => {
+            if (editable && editingId === t.id) {
+              return (
+                <div key={t.id} className="px-4 py-3">
+                  <TaskForm
+                    task={t}
+                    users={users}
+                    anchor={anchor}
+                    onSaved={() => { setEditingId(null); refresh(); }}
+                    onCancel={() => setEditingId(null)}
+                  />
+                </div>
+              );
+            }
             const closed = t.status === "DONE" || t.status === "CANCELLED";
             return (
               <div key={t.id} className="flex items-start gap-3 px-4 py-3">
@@ -157,6 +115,9 @@ export function TaskPanel({
                         <option key={s} value={s}>{TASK_STATUS_LABELS[s]}</option>
                       ))}
                     </select>
+                    <button className="text-xs text-brand-600 hover:underline" onClick={() => setEditingId(t.id)}>
+                      Edit
+                    </button>
                     <button
                       className="text-xs text-red-600 hover:underline"
                       onClick={() => { if (confirm("Delete this task?")) deleteTask(t.id).then(refresh); }}
@@ -173,5 +134,88 @@ export function TaskPanel({
         </div>
       )}
     </div>
+  );
+}
+
+// Shared task form — used for both adding a new task and editing an existing one.
+// When `task` is provided it edits in place (hidden id → saveTask updates it).
+function TaskForm({
+  task,
+  users,
+  anchor,
+  onSaved,
+  onCancel,
+}: {
+  task?: TaskItem;
+  users: Option[];
+  anchor: Anchor;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState("");
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    const fd = new FormData(e.currentTarget);
+    start(async () => {
+      const r = await saveTask(fd);
+      if (r && "error" in r && r.error) setError(r.error);
+      else onSaved();
+    });
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="card space-y-3 p-4">
+      {task && <input type="hidden" name="id" value={task.id} />}
+      {anchor.dealId && <input type="hidden" name="dealId" value={anchor.dealId} />}
+      {anchor.companyId && <input type="hidden" name="companyId" value={anchor.companyId} />}
+      {anchor.contactId && <input type="hidden" name="contactId" value={anchor.contactId} />}
+      <input className="input" name="title" placeholder="Task title" defaultValue={task?.title ?? ""} required />
+      <textarea className="input" name="description" rows={2} placeholder="Description (optional)" defaultValue={task?.description ?? ""} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label">Assignee (internal)</label>
+          <select className="input" name="assigneeUserId" defaultValue={task?.assigneeUserId ?? ""}>
+            <option value="">— None —</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">…or external assignee</label>
+          <input className="input" name="assigneeExternal" placeholder="Name / email" defaultValue={task?.assigneeExternal ?? ""} />
+        </div>
+        <div>
+          <label className="label">Priority</label>
+          <select className="input" name="priority" defaultValue={task?.priority ?? "MEDIUM"}>
+            {TASK_PRIORITIES.map((p) => (
+              <option key={p} value={p}>{TASK_PRIORITY_LABELS[p]}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">Status</label>
+          <select className="input" name="status" defaultValue={task?.status ?? "TODO"}>
+            {TASK_STATUSES.map((s) => (
+              <option key={s} value={s}>{TASK_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">Due date &amp; time</label>
+          <input className="input" name="dueAt" type="datetime-local" defaultValue={task?.dueAtInput ?? ""} />
+        </div>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex items-center gap-2">
+        <button className="btn-primary" type="submit" disabled={pending}>
+          {pending ? "Saving…" : task ? "Save changes" : "Add task"}
+        </button>
+        <button className="btn-secondary" type="button" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
   );
 }
