@@ -53,8 +53,8 @@ export function ContactRecordView({
   const save = (field: string) => (value: string) => updateContactField(contact.id, field, value);
 
   return (
-    <div className="lg:flex lg:gap-6">
-      <div className="min-w-0 flex-1">
+    <div className="lg:flex lg:h-screen lg:-my-8 lg:-mr-8 lg:overflow-hidden">
+      <div className="min-w-0 flex-1 lg:h-full lg:overflow-y-auto lg:py-8 lg:pr-6">
         <div className="mb-3 flex items-center gap-2 text-sm text-muted">
           <Link href="/crm/contacts" className="hover:underline">Contacts</Link>
           <span>/</span>
@@ -87,7 +87,7 @@ export function ContactRecordView({
         )}
       </div>
 
-      <aside className="mt-6 shrink-0 lg:mt-0 lg:w-80">
+      <aside className="mt-6 shrink-0 lg:mt-0 lg:h-full lg:w-80 lg:overflow-y-auto lg:border-l lg:border-border lg:py-8 lg:pl-6 lg:pr-8">
         {editable && (
           <div className="mb-3 flex justify-end">
             <ContactActions contactId={contact.id} name={fullName || "this contact"} />
