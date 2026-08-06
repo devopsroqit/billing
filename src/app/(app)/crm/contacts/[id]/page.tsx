@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEdit } from "@/lib/auth";
+import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { ContactRecordView } from "@/components/crm/ContactRecordView";
 import { toTaskItem } from "@/lib/tasks";
 import { toAuditItem, toNoteItem } from "@/lib/crm-feed";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function ContactDetailPage({ params }: { params: { id: string } }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
-  const editable = canEdit(me.role);
+  const editable = await canEditCRM(me);
 
   const contact = await prisma.contact.findUnique({
     where: { id: params.id },

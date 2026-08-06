@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEdit } from "@/lib/auth";
+import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { DEAL_STAGE_LABELS, type DealStage, type Currency } from "@/lib/constants";
 import { CompanyRecordView } from "@/components/crm/CompanyRecordView";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function CompanyDetailPage({ params }: { params: { id: string } }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
-  const editable = canEdit(me.role);
+  const editable = await canEditCRM(me);
 
   const company = await prisma.company.findUnique({
     where: { id: params.id },

@@ -1,7 +1,7 @@
 import { saveUser } from "@/app/actions";
 import { ROLES, ROLE_LABELS, ROLE_HINTS } from "@/lib/constants";
 
-type UserData = { id: string; name: string; email: string; role: string };
+type UserData = { id: string; name: string; email: string; role: string; canEditCrm?: boolean };
 
 export function UserForm({ user }: { user?: UserData }) {
   return (
@@ -26,6 +26,16 @@ export function UserForm({ user }: { user?: UserData }) {
             <option key={r} value={r}>{ROLE_LABELS[r]} — {ROLE_HINTS[r]}</option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" name="canEditCrm" defaultChecked={user?.canEditCrm} className="h-4 w-4 rounded border-border text-brand-600 focus:ring-brand-600" />
+          <span className="text-sm font-medium text-fg">CRM edit access</span>
+        </label>
+        <p className="mt-1 text-xs text-faint">
+          Invite this member to create and edit CRM records (companies, contacts, deals, tasks). Without it they can view CRM but not change anything. Admins always have access.
+        </p>
       </div>
 
       <div>

@@ -87,6 +87,18 @@ export function canManageUsers(role: Role): boolean {
   return role === "ADMIN";
 }
 
+/**
+ * CRM editing is invite-gated, independent of the global role: admins always
+ * can, everyone else only if they've been granted `canEditCrm`. A plain global
+ * Editor is view-only in CRM until an admin invites them. Reads the flag from
+ * the DB so grants/revokes take effect immediately (not tied to the session).
+ */
+export async function canEditCRM(user: { id: string; role: Role }): Promise<boolean> {
+  if (user.role === "ADMIN") return true;
+  const u = await prisma.user.findUnique({ where: { id: user.id }, select: { canEditCrm: true } });
+  return !!u?.canEditCrm;
+}
+
 /** Throw if the given role may not edit — used to guard server actions. */
 export function assertCanEdit(role: Role) {
   if (!canEdit(role)) {

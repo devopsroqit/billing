@@ -370,16 +370,18 @@ export async function saveUser(formData: FormData) {
   assertCanManageUsers(actor.role);
   const p = userSchema.parse(Object.fromEntries(formData));
   const email = p.email.toLowerCase().trim();
+  // Unchecked checkboxes aren't submitted, so absence = false.
+  const canEditCrm = formData.get("canEditCrm") === "on";
 
   if (p.id) {
-    const data: Record<string, unknown> = { name: p.name.trim(), email, role: p.role };
+    const data: Record<string, unknown> = { name: p.name.trim(), email, role: p.role, canEditCrm };
     if (p.password && p.password.length >= 6) data.passwordHash = await hashPassword(p.password);
     await prisma.user.update({ where: { id: p.id }, data });
     await audit(actor.id, "UPDATE", "User", p.id, email);
   } else {
     if (!p.password || p.password.length < 6) throw new Error("Password must be at least 6 characters.");
     const created = await prisma.user.create({
-      data: { name: p.name.trim(), email, role: p.role, passwordHash: await hashPassword(p.password) },
+      data: { name: p.name.trim(), email, role: p.role, canEditCrm, passwordHash: await hashPassword(p.password) },
     });
     await audit(actor.id, "CREATE", "User", created.id, email);
     // Notify the new member. Best-effort — never block account creation on email.

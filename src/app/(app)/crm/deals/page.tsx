@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEdit } from "@/lib/auth";
+import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import {
   DEAL_STAGES,
@@ -22,7 +22,7 @@ export default async function DealsPage({
 }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
-  const editable = canEdit(me.role);
+  const editable = await canEditCRM(me);
 
   // Board is the default; the table stays available via the List toggle.
   const view = searchParams.view === "list" ? "list" : "board";

@@ -36,7 +36,7 @@ async function main() {
     data: { email: "admin@roqit.com", name: "Admin", passwordHash: pwd, role: "ADMIN" },
   });
   const editor = await prisma.user.create({
-    data: { email: "editor@roqit.com", name: "Prashanth (Finance)", passwordHash: pwd, role: "EDITOR" },
+    data: { email: "editor@roqit.com", name: "Prashanth (Finance)", passwordHash: pwd, role: "EDITOR", canEditCrm: true },
   });
   await prisma.user.create({
     data: { email: "viewer@roqit.com", name: "Viewer", passwordHash: pwd, role: "VIEWER" },

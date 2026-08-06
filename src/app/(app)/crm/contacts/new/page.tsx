@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEdit } from "@/lib/auth";
+import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { ContactForm } from "@/components/crm/ContactForm";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewContactPage({ searchParams }: { searchParams: { companyId?: string } }) {
   const me = await getSessionUser();
-  if (!me || !canEdit(me.role)) redirect("/crm/contacts");
+  if (!me || !(await canEditCRM(me))) redirect("/crm/contacts");
 
   const [companies, users] = await Promise.all([
     prisma.company.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
