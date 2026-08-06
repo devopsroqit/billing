@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+
+// Inter — Frappe's typeface. Self-hosted by next/font; exposed as --font-inter
+// which the Tailwind `sans` stack points at.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
   title: "ROQIT Billing",
@@ -12,7 +17,7 @@ const themeScript = `(function(){try{if(localStorage.getItem('sidebar')==='colla
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
