@@ -3,15 +3,19 @@ import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEditCRM } from "@/lib/auth";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import {
   DEAL_STAGES,
   DEAL_STAGE_LABELS,
   type DealStage,
   type Currency,
 } from "@/lib/constants";
-import { PageHeader, StatusBadge } from "@/components/ui";
+import { PageHeader, StatusBadge, Stat } from "@/components/ui";
 import { DealBoard, type BoardDeal } from "@/components/crm/DealBoard";
+
+// Stages at/after a signed contract count as "won"; a deal with a loss reason
+// counts as lost. Used for the KPI strip.
+const WON_STAGES = new Set(["WON_CONTRACTED", "DEPLOYMENT_STARTED", "BILLING_ACTIVE", "CASH_RECEIVED"]);
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +52,23 @@ export default async function DealsPage({
 
   const users = await prisma.user.findMany({ select: { id: true, name: true } });
   const userName = new Map(users.map((u) => [u.id, u.name]));
+
+  // KPIs reflect the WHOLE pipeline, independent of the search/stage filter, so
+  // the headline numbers stay stable as you filter the board/list below.
+  const [kpiDeals, overdueTaskCount] = await Promise.all([
+    prisma.deal.findMany({ select: { stage: true, amountMinor: true, arrMinor: true, lossReason: true, active: true } }),
+    prisma.task.count({ where: { dealId: { not: null }, status: { notIn: ["DONE", "CANCELLED"] }, dueAt: { lt: new Date() } } }),
+  ]);
+  let openValueMinor = 0, openDeals = 0, wonValueMinor = 0, wonArrMinor = 0, wonDeals = 0, lostDeals = 0;
+  for (const d of kpiDeals) {
+    const lost = !!d.lossReason?.trim();
+    const won = WON_STAGES.has(d.stage) && !lost;
+    if (lost) lostDeals++;
+    else if (won) { wonDeals++; wonValueMinor += d.amountMinor; wonArrMinor += d.arrMinor; }
+    else if (d.active) { openDeals++; openValueMinor += d.amountMinor; }
+  }
+  const decided = wonDeals + lostDeals;
+  const winRate = decided > 0 ? Math.round((wonDeals / decided) * 100) : null;
 
   const rows = q
     ? deals.filter((d) =>
@@ -116,6 +137,25 @@ export default async function DealsPage({
           </div>
         }
       />
+
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Open pipeline" value={formatMoneyCompact(openValueMinor, "INR")} hint={`${openDeals} open deal${openDeals === 1 ? "" : "s"}`} />
+        <Stat label="Open deals" value={String(openDeals)} />
+        <Stat label="Won value" value={formatMoneyCompact(wonValueMinor, "INR")} tone="success" hint={`${wonDeals} won`} />
+        <Stat
+          label="Win rate"
+          value={winRate === null ? "—" : `${winRate}%`}
+          tone={winRate !== null && winRate >= 50 ? "success" : "default"}
+          hint={winRate === null ? "no closed deals yet" : `${wonDeals} won · ${lostDeals} lost`}
+        />
+        <Stat label="ARR (won)" value={formatMoneyCompact(wonArrMinor, "INR")} tone="success" />
+        <Stat
+          label="Overdue tasks"
+          value={String(overdueTaskCount)}
+          tone={overdueTaskCount > 0 ? "danger" : "default"}
+          href="/crm/tasks"
+        />
+      </div>
 
       <form className="card mb-4 flex flex-wrap items-end gap-3 p-4" method="get">
         <input type="hidden" name="view" value={view} />
