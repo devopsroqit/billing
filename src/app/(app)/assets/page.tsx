@@ -86,7 +86,7 @@ export default async function AssetsOverviewPage() {
       <div className="card mt-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-border p-4">
           <p className="text-sm font-medium text-fg">Recent purchases</p>
-          <Link href="/purchases" className="text-xs font-medium text-brand-600 hover:underline">All purchases</Link>
+          <Link href="/procurement?tab=purchases" className="text-xs font-medium text-brand-600 hover:underline">All purchases</Link>
         </div>
         {recentPurchases.length === 0 ? (
           <p className="p-4 text-sm text-faint">No purchases yet.</p>

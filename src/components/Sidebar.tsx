@@ -7,7 +7,7 @@ import { ROLE_LABELS, type Role } from "@/lib/constants";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Icon } from "@/components/Icon";
 
-type NavItem = { href: string; label: string; icon: string; adminOnly?: boolean };
+type NavItem = { href: string; label: string; icon: string; adminOnly?: boolean; match?: string[] };
 const SECTIONS: { heading?: string; items: NavItem[] }[] = [
   {
     items: [
@@ -31,8 +31,7 @@ const SECTIONS: { heading?: string; items: NavItem[] }[] = [
     heading: "Assets",
     items: [
       { href: "/assets", label: "Assets overview", icon: "package" },
-      { href: "/suppliers", label: "Suppliers", icon: "truck" },
-      { href: "/purchases", label: "Purchases", icon: "shopping-cart" },
+      { href: "/procurement", label: "Procurement", icon: "shopping-cart", match: ["/suppliers", "/purchases"] },
       { href: "/devices", label: "Devices", icon: "cpu" },
     ],
   },
@@ -87,7 +86,10 @@ export function Sidebar({ user, unreadNotifications = 0 }: { user: { name: strin
             </p>
           )}
           {section.items.map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            const active =
+              item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href) || (item.match ?? []).some((m) => pathname.startsWith(m));
             return (
               <Link
                 key={item.href}

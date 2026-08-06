@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewSupplierPage() {
   const user = await getSessionUser();
-  if (!user || !canEdit(user.role)) redirect("/suppliers");
+  if (!user || !canEdit(user.role)) redirect("/procurement?tab=suppliers");
 
   return (
     <div className="max-w-3xl">

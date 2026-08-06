@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditSupplierPage({ params }: { params: { id: string } }) {
   const user = await getSessionUser();
-  if (!user || !canEdit(user.role)) redirect("/suppliers");
+  if (!user || !canEdit(user.role)) redirect("/procurement?tab=suppliers");
 
   const supplier = await prisma.supplier.findUnique({
     where: { id: params.id },
