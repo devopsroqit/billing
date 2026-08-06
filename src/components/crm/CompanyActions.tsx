@@ -20,6 +20,7 @@ export function CompanyActions({ companyId, name, active }: { companyId: string;
     <ActionsMenu pending={pending}>
       {(close) => (
         <>
+          <MenuItem onClick={() => { close(); router.push(`/crm/companies/${companyId}/edit`); }}>Edit company</MenuItem>
           <MenuItem
             onClick={() => run(close, active ? `Deactivate company “${name}”?` : `Reactivate company “${name}”?`, () => toggleCompanyActive(companyId))}
           >
