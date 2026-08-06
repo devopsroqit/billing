@@ -36,9 +36,10 @@ export default async function DeviceDetailPage({ params }: { params: { id: strin
   });
   if (!device) notFound();
 
-  const [suppliers, purchases] = await Promise.all([
+  const [suppliers, purchases, deals] = await Promise.all([
     prisma.supplier.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.purchase.findMany({ orderBy: { purchaseDate: "desc" }, include: { supplier: true }, take: 200 }),
+    prisma.deal.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, title: true }, take: 500 }),
   ]);
 
   const title = device.deviceName || device.modelNo || device.model || device.category;
@@ -86,6 +87,7 @@ export default async function DeviceDetailPage({ params }: { params: { id: strin
               }}
               suppliers={suppliers.map((s) => ({ id: s.id, label: s.name }))}
               purchases={purchases.map((p) => ({ id: p.id, label: `${p.reference || format(p.purchaseDate, "d MMM yyyy")}${p.supplier ? ` · ${p.supplier.name}` : ""}` }))}
+              deals={deals.map((d) => ({ id: d.id, label: d.title }))}
             />
           ) : (
             <div className="card p-6 text-sm text-muted">Read-only — ask an editor to make changes.</div>

@@ -34,18 +34,29 @@ export function DeviceForm({
   device,
   suppliers,
   purchases,
+  deals,
   defaultPurchaseId,
   defaultSupplierId,
 }: {
   device?: DeviceInitial;
   suppliers: Option[];
   purchases: Option[];
+  deals: Option[];
   defaultPurchaseId?: string;
   defaultSupplierId?: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+
+  // Project / Client: pick from the deals list, or choose "Custom…" to free-type.
+  // The value is stored as-is in the existing projectClient text field. On edit,
+  // a stored value that doesn't match a deal is treated as a custom entry.
+  const dealLabels = deals.map((d) => d.label);
+  const initialPC = device?.projectClient ?? "";
+  const initialIsDeal = initialPC !== "" && dealLabels.includes(initialPC);
+  const [pcCustom, setPcCustom] = useState(initialIsDeal ? false : initialPC !== "");
+  const [pcValue, setPcValue] = useState(initialPC);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -113,7 +124,36 @@ export function DeviceForm({
         </div>
         <div>
           <label className="label">Project / Client</label>
-          <input className="input" name="projectClient" defaultValue={v.projectClient ?? ""} />
+          <select
+            className="input"
+            value={pcCustom ? "__custom__" : pcValue}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "__custom__") {
+                setPcCustom(true);
+                setPcValue("");
+              } else {
+                setPcCustom(false);
+                setPcValue(val);
+              }
+            }}
+          >
+            <option value="">— None —</option>
+            {deals.map((d) => (
+              <option key={d.id} value={d.label}>{d.label}</option>
+            ))}
+            <option value="__custom__">Custom…</option>
+          </select>
+          {pcCustom && (
+            <input
+              className="input mt-2"
+              placeholder="Type a project / client name…"
+              value={pcValue}
+              onChange={(e) => setPcValue(e.target.value)}
+            />
+          )}
+          {/* The actual submitted value, whether from a deal or a custom entry. */}
+          <input type="hidden" name="projectClient" value={pcValue} />
         </div>
         <div>
           <label className="label">Location</label>
