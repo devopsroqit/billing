@@ -37,7 +37,10 @@ const SECTIONS: { heading?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    items: [{ href: "/team", label: "Team", icon: "users", adminOnly: true }],
+    items: [
+      { href: "/notifications", label: "Notifications", icon: "bell" },
+      { href: "/team", label: "Team", icon: "users", adminOnly: true },
+    ],
   },
 ];
 
@@ -50,7 +53,7 @@ function Logo() {
   );
 }
 
-export function Sidebar({ user }: { user: { name: string; email: string; role: Role } }) {
+export function Sidebar({ user, unreadNotifications = 0 }: { user: { name: string; email: string; role: Role }; unreadNotifications?: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false); // mobile drawer
   const [collapsed, setCollapsed] = useState(false); // desktop rail
@@ -100,8 +103,18 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: R
                 {active && (
                   <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-brand-600" aria-hidden="true" />
                 )}
-                <Icon name={item.icon} className="h-[18px] w-[18px] shrink-0" />
+                <span className="relative shrink-0">
+                  <Icon name={item.icon} className="h-[18px] w-[18px]" />
+                  {item.href === "/notifications" && unreadNotifications > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white">
+                      {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                    </span>
+                  )}
+                </span>
                 <span className="sidebar-label">{item.label}</span>
+                {item.href === "/notifications" && unreadNotifications > 0 && (
+                  <span className="sidebar-label ml-auto rounded-full bg-brand-500/15 px-1.5 text-[10px] font-semibold text-brand-600">{unreadNotifications}</span>
+                )}
               </Link>
             );
           })}
