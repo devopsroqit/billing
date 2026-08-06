@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getSessionUser, logout, assertCanEdit } from "@/lib/auth";
+import { getSessionUser, logout } from "@/lib/auth";
 import { majorToMinor } from "@/lib/money";
 import { logActivity, parseMentions } from "@/lib/activity";
 import { notify, notifyMany, resolveMentions } from "@/lib/notify";
@@ -21,7 +21,7 @@ import {
 } from "@/lib/constants";
 
 // CRM server actions. Kept separate from the large src/app/actions.ts. Same
-// conventions: zod-validate FormData, guard with requireEditor(), write via
+// conventions: zod-validate FormData, guard with requireCrmEditor(), write via
 // prisma, record an audit row, then revalidate/redirect. Owner/creator are
 // plain User ids (resolved to names in the UI).
 
@@ -37,9 +37,17 @@ async function requireUser() {
   return session;
 }
 
-async function requireEditor() {
+// CRM editing is invite-gated: admins always, everyone else only if they've been
+// granted canEditCrm by an admin. This replaces the plain role check for all CRM
+// mutations, so a global Editor without the invite is view-only in CRM.
+async function requireCrmEditor() {
   const user = await requireUser();
-  assertCanEdit(user.role);
+  if (user.role !== "ADMIN") {
+    const u = await prisma.user.findUnique({ where: { id: user.id }, select: { canEditCrm: true } });
+    if (!u?.canEditCrm) {
+      throw new Error("You don't have edit access to CRM. Ask an admin to invite you.");
+    }
+  }
   return user;
 }
 
@@ -101,7 +109,7 @@ function orNullEnum(v: unknown, allowed: readonly string[]): string | null {
 }
 
 export async function saveCompany(formData: FormData) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const raw = Object.fromEntries(formData) as Record<string, string>;
   const p = companySchema.parse(raw);
   const data = {
@@ -136,7 +144,7 @@ export async function saveCompany(formData: FormData) {
 }
 
 export async function toggleCompanyActive(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const c = await prisma.company.findUnique({ where: { id } });
   if (!c) return;
   await prisma.company.update({ where: { id }, data: { active: !c.active } });
@@ -147,7 +155,7 @@ export async function toggleCompanyActive(id: string) {
 }
 
 export async function deleteCompany(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const c = await prisma.company.findUnique({ where: { id } });
   if (!c) return;
   // Contacts and deals are kept (their companyId is set to null via the schema's
@@ -175,7 +183,7 @@ const contactSchema = z.object({
 });
 
 export async function saveContact(formData: FormData) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const raw = Object.fromEntries(formData) as Record<string, string>;
   const p = contactSchema.parse(raw);
   const isPrimary = raw.isPrimary === "on" || raw.isPrimary === "true";
@@ -216,7 +224,7 @@ const EDITABLE_COMPANY_FIELDS = [
 ] as const;
 
 export async function updateCompanyField(id: string, field: string, value: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   if (!(EDITABLE_COMPANY_FIELDS as readonly string[]).includes(field)) {
     return { error: "That field can't be edited." };
   }
@@ -257,7 +265,7 @@ const EDITABLE_CONTACT_FIELDS = [
 ] as const;
 
 export async function updateContactField(id: string, field: string, value: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   if (!(EDITABLE_CONTACT_FIELDS as readonly string[]).includes(field)) {
     return { error: "That field can't be edited." };
   }
@@ -310,7 +318,7 @@ const dealSchema = z.object({
 });
 
 export async function saveDeal(formData: FormData) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const raw = Object.fromEntries(formData) as Record<string, string>;
   const p = dealSchema.parse(raw);
   const data = {
@@ -359,7 +367,7 @@ export async function saveDeal(formData: FormData) {
 
 // Quick stage change from the list or record view. Manages closedAt.
 export async function updateDealStage(id: string, stage: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   if (!(DEAL_STAGES as readonly string[]).includes(stage)) return { error: "Invalid stage." };
   const before = await prisma.deal.findUnique({ where: { id }, select: { companyId: true, closedAt: true, stage: true, title: true } });
   await prisma.deal.update({
@@ -393,7 +401,7 @@ const DEAL_DATE_FIELDS = new Set(["contractSignedDate", "firstInvoiceDate", "fir
 const DEAL_MONEY_COLUMN: Record<string, string> = { amount: "amountMinor", arr: "arrMinor" };
 
 export async function updateDealField(id: string, field: string, value: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   if (!(EDITABLE_DEAL_FIELDS as readonly string[]).includes(field)) {
     return { error: "That field can't be edited." };
   }
@@ -442,7 +450,7 @@ export async function updateDealField(id: string, field: string, value: string) 
 }
 
 export async function deleteDeal(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const d = await prisma.deal.findUnique({ where: { id } });
   if (!d) return;
   await prisma.deal.delete({ where: { id } });
@@ -456,7 +464,7 @@ export async function deleteDeal(id: string) {
 
 // Toggle a deal's active flag (Mark Deal as Inactive / Reactivate).
 export async function markDealInactive(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const d = await prisma.deal.findUnique({ where: { id } });
   if (!d) return;
   await prisma.deal.update({ where: { id }, data: { active: !d.active } });
@@ -473,7 +481,7 @@ export async function markDealInactive(id: string) {
 
 // Toggle a deal's project-completed marker (Mark Project as Completed / Reopen).
 export async function markProjectCompleted(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const d = await prisma.deal.findUnique({ where: { id } });
   if (!d) return;
   const done = !d.projectCompletedAt;
@@ -500,7 +508,7 @@ async function userLabel(id: string | null): Promise<string> {
 
 // Change the single primary owner of a deal.
 export async function changeDealOwner(dealId: string, userId: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const before = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true, title: true } });
   if (!before) return { error: "Deal not found." };
   const newOwner = orNull(userId);
@@ -524,7 +532,7 @@ export async function changeDealOwner(dealId: string, userId: string) {
 
 // Promote a contributor to primary owner; the previous owner becomes a contributor.
 export async function promoteContributor(dealId: string, userId: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   if (!orNull(userId)) return { error: "Pick a contributor." };
   const before = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true, title: true } });
   if (!before) return { error: "Deal not found." };
@@ -555,7 +563,7 @@ export async function promoteContributor(dealId: string, userId: string) {
 }
 
 export async function addDealContributor(dealId: string, userId: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   if (!orNull(userId)) return { error: "Pick a team member." };
   const deal = await prisma.deal.findUnique({ where: { id: dealId }, select: { ownerId: true, companyId: true, stage: true, title: true } });
   if (!deal) return { error: "Deal not found." };
@@ -577,7 +585,7 @@ export async function addDealContributor(dealId: string, userId: string) {
 }
 
 export async function removeDealContributor(dealId: string, userId: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const deal = await prisma.deal.findUnique({ where: { id: dealId }, select: { companyId: true, stage: true, title: true } });
   if (!deal) return { error: "Deal not found." };
   await prisma.dealContributor.deleteMany({ where: { dealId, userId } });
@@ -609,7 +617,7 @@ export async function saveNote(input: {
   dealId?: string;
   body: string;
 }) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const body = (input.body ?? "").trim();
   if (!body) return { error: "Add some text first." };
   await prisma.note.create({
@@ -638,7 +646,7 @@ export async function saveNote(input: {
 }
 
 export async function deleteNote(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const n = await prisma.note.findUnique({ where: { id } });
   if (!n) return;
   await prisma.note.delete({ where: { id } });
@@ -652,7 +660,7 @@ export async function deleteNote(id: string) {
 // Activity comments (threaded discussion on an audit entry)
 // ===========================================================================
 export async function addActivityComment(input: { activityId: string; body: string; parentId?: string }) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const body = (input.body ?? "").trim();
   if (!body) return { error: "Write something first." };
   const activity = await prisma.activity.findUnique({ where: { id: input.activityId } });
@@ -684,7 +692,7 @@ export async function addActivityComment(input: { activityId: string; body: stri
 }
 
 export async function deleteActivityComment(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const c = await prisma.activityComment.findUnique({ where: { id }, include: { activity: true } });
   if (!c) return;
   await prisma.activityComment.delete({ where: { id } });
@@ -695,7 +703,7 @@ export async function deleteActivityComment(id: string) {
 }
 
 export async function deleteContact(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const c = await prisma.contact.findUnique({ where: { id } });
   if (!c) return;
   await prisma.contact.delete({ where: { id } });
@@ -732,7 +740,7 @@ const taskSchema = z.object({
 });
 
 export async function saveTask(formData: FormData): Promise<{ ok?: true; error?: string }> {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const raw = Object.fromEntries(formData) as Record<string, string>;
   const parsed = taskSchema.safeParse(raw);
   if (!parsed.success) {
@@ -799,7 +807,7 @@ function taskLink(t: { dealId: string | null; companyId: string | null; contactI
 }
 
 export async function updateTaskStatus(id: string, status: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   if (!(TASK_STATUSES as readonly string[]).includes(status)) return { error: "Invalid status." };
   const t = await prisma.task.findUnique({ where: { id } });
   if (!t) return { error: "Task not found." };
@@ -828,7 +836,7 @@ export async function updateTaskStatus(id: string, status: string) {
 
 // Checkbox toggle: DONE ⇄ TODO (records/clears completion).
 export async function toggleTaskDone(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const t = await prisma.task.findUnique({ where: { id } });
   if (!t) return;
   const done = t.status !== "DONE";
@@ -853,7 +861,7 @@ export async function toggleTaskDone(id: string) {
 }
 
 export async function deleteTask(id: string) {
-  const user = await requireEditor();
+  const user = await requireCrmEditor();
   const t = await prisma.task.findUnique({ where: { id } });
   if (!t) return;
   await prisma.task.delete({ where: { id } });

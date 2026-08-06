@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEdit } from "@/lib/auth";
+import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { DocumentForm, DeleteDocButton } from "@/components/DocumentForm";
 import { DealRecordView } from "@/components/crm/DealRecordView";
 import { toTaskItem } from "@/lib/tasks";
@@ -15,7 +15,7 @@ const asDateInput = (d: Date | null) => (d ? format(d, "yyyy-MM-dd") : null);
 export default async function DealDetailPage({ params }: { params: { id: string } }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
-  const editable = canEdit(me.role);
+  const editable = await canEditCRM(me);
 
   const deal = await prisma.deal.findUnique({
     where: { id: params.id },

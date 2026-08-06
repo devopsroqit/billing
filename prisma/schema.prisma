@@ -33,6 +33,7 @@ model User {
   name         String
   passwordHash String
   role         String   @default("VIEWER") // ADMIN | EDITOR | VIEWER
+  canEditCrm   Boolean  @default(false) // invited to edit CRM; admins always can
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 

@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEdit } from "@/lib/auth";
+import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { CompanyForm } from "@/components/crm/CompanyForm";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditCompanyPage({ params }: { params: { id: string } }) {
   const me = await getSessionUser();
-  if (!me || !canEdit(me.role)) redirect(`/crm/companies/${params.id}`);
+  if (!me || !(await canEditCRM(me))) redirect(`/crm/companies/${params.id}`);
 
   const company = await prisma.company.findUnique({ where: { id: params.id } });
   if (!company) notFound();

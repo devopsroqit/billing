@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEdit } from "@/lib/auth";
+import { getSessionUser, canEditCRM } from "@/lib/auth";
 import {
   TASK_STATUSES,
   TASK_STATUS_LABELS,
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function MyTasksPage({ searchParams }: { searchParams: { status?: string } }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
-  const editable = canEdit(me.role);
+  const editable = await canEditCRM(me);
 
   const status = searchParams.status ?? "";
 

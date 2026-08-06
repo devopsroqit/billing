@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEdit } from "@/lib/auth";
+import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { toggleCompanyActive } from "@/app/crm-actions";
 import {
   RELATIONSHIP_TYPES,
@@ -19,7 +19,7 @@ export default async function CompaniesPage({
 }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
-  const editable = canEdit(me.role);
+  const editable = await canEditCRM(me);
 
   const q = (searchParams.q ?? "").trim();
   const type = searchParams.type ?? "";

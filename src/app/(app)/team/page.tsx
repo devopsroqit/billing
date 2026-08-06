@@ -39,6 +39,7 @@ export default async function TeamPage() {
               <th className="th">Name</th>
               <th className="th">Email</th>
               <th className="th">Role</th>
+              <th className="th">CRM access</th>
               <th className="th">Status</th>
               <th className="th text-right">Actions</th>
             </tr>
@@ -49,6 +50,15 @@ export default async function TeamPage() {
                 <td className="td font-medium text-fg">{u.name}{u.id === me.id && <span className="ml-2 text-xs text-faint">(you)</span>}</td>
                 <td className="td">{u.email}</td>
                 <td className="td">{ROLE_LABELS[u.role as Role] ?? u.role}</td>
+                <td className="td">
+                  {u.role === "ADMIN" ? (
+                    <span className="text-xs text-muted">Full (admin)</span>
+                  ) : u.canEditCrm ? (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Can edit</span>
+                  ) : (
+                    <span className="text-xs text-faint">View only</span>
+                  )}
+                </td>
                 <td className="td"><StatusBadge status={u.active ? "ACTIVE" : "INACTIVE"} label={u.active ? "Active" : "Inactive"} /></td>
                 <td className="td">
                   <div className="flex items-center justify-end gap-2">
