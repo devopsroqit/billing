@@ -85,9 +85,9 @@ export function CompanyRecordView({
   const website = firstDomainUrl(company.domains);
 
   return (
-    <div className="lg:flex lg:gap-6">
+    <div className="lg:flex lg:h-screen lg:-my-8 lg:-mr-8 lg:overflow-hidden">
       {/* MAIN — activity / tabs */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 lg:h-full lg:overflow-y-auto lg:py-8 lg:pr-6">
         <div className="mb-3 flex items-center gap-2 text-sm text-muted">
           <Link href="/crm/companies" className="hover:underline">Companies</Link>
           <span>/</span>
@@ -168,7 +168,7 @@ export function CompanyRecordView({
       </div>
 
       {/* RIGHT RAIL — record details, inline-editable */}
-      <aside className="mt-6 shrink-0 lg:mt-0 lg:w-80">
+      <aside className="mt-6 shrink-0 lg:mt-0 lg:h-full lg:w-80 lg:overflow-y-auto lg:border-l lg:border-border lg:py-8 lg:pl-6 lg:pr-8">
         {editable && (
           <div className="mb-3 flex justify-end">
             <CompanyActions companyId={company.id} name={company.name} active={company.active} />
