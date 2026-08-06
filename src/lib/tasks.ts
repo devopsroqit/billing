@@ -27,5 +27,9 @@ export function toTaskItem(t: TaskRow, userName: (id: string | null) => string |
     dueLabel: t.dueAt ? format(t.dueAt, "d MMM yyyy, HH:mm") : null,
     overdue: !!t.dueAt && !closed && t.dueAt.getTime() < Date.now(),
     completedLabel: t.completedAt ? format(t.completedAt, "d MMM yyyy") : null,
+    // Raw values for the inline edit form.
+    assigneeUserId: t.assigneeUserId,
+    assigneeExternal: t.assigneeExternal,
+    dueAtInput: t.dueAt ? format(t.dueAt, "yyyy-MM-dd'T'HH:mm") : null,
   };
 }
