@@ -27,7 +27,7 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-semibold text-fg">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-fg">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
       {action}
@@ -66,7 +66,7 @@ export function Stat({
   const inner = (
     <div className="card p-5 h-full">
       <p className="text-sm text-muted">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${toneCls}`}>{value}</p>
+      <p className={`mt-2 text-2xl font-semibold tracking-tight ${toneCls}`}>{value}</p>
       {hint && <p className="mt-1 text-xs text-faint">{hint}</p>}
     </div>
   );

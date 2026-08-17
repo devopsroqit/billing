@@ -6,14 +6,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand accent — ROQIT blue. Works on both light and dark surfaces.
+        // Brand accent — Apple "Action Blue" (#0066cc), the single interactive color.
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
+          50: "#e9f2fc",
+          100: "#d1e4fb",
+          200: "#a3c9f7",
+          500: "#2997ff",
+          600: "#0066cc",
+          700: "#0055aa",
         },
         // Semantic tokens backed by CSS variables (see globals.css). These flip
         // automatically between light and dark, so the whole UI themes centrally.
