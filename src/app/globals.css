@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 /* Semantic color tokens (space-separated RGB, consumed via rgb(var(--x)/a)).
-   Neutral (zinc) grays for a clean, Frappe-style look — no blue tint. */
+   IBM Carbon palette: white canvas, charcoal ink, gray-10 surface, 1px hairlines. */
 :root {
   color-scheme: light;
-  --bg: 250 250 250; /* zinc-50 — page background */
-  --surface: 255 255 255; /* white — cards, inputs */
-  --surface-2: 244 244 245; /* zinc-100 — table headers, hover, insets */
-  --border: 228 228 231; /* zinc-200 — thin neutral borders */
-  --fg: 24 24 27; /* zinc-900 — text */
-  --muted: 113 113 122; /* zinc-500 */
-  --faint: 161 161 170; /* zinc-400 */
+  --bg: 255 255 255; /* Carbon canvas — pure white page background */
+  --surface: 255 255 255; /* white — cards/tiles (separated by hairlines) */
+  --surface-2: 244 244 244; /* Carbon gray-10 (#f4f4f4) — table headers, hover, inputs */
+  --border: 224 224 224; /* Carbon gray-20 (#e0e0e0) — 1px hairlines */
+  --fg: 22 22 22; /* Carbon gray-100 (#161616) — ink */
+  --muted: 82 82 82; /* Carbon gray-70 (#525252) — secondary text */
+  --faint: 141 141 141; /* Carbon gray-50 (#8c8c8c) — tertiary/helper text */
 }
 
 .dark {
@@ -29,6 +29,8 @@
 body {
   background: rgb(var(--bg));
   color: rgb(var(--fg));
+  /* Carbon precision detail: small positive tracking on body text. */
+  letter-spacing: 0.16px;
   @apply antialiased;
 }
 
@@ -54,26 +56,39 @@ body {
 }
 
 @layer components {
+  /* Carbon buttons: square, flat, generous horizontal padding. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-normal transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-700;
+    @apply btn bg-brand-600 text-white hover:bg-brand-700;
   }
+  /* Carbon "tertiary": white with a 1px charcoal outline + ink text. */
   .btn-secondary {
-    @apply btn bg-surface text-fg ring-1 ring-inset ring-border hover:bg-surface-2;
+    @apply btn bg-transparent text-fg ring-1 ring-inset ring-fg hover:bg-surface-2;
   }
   .btn-danger {
     @apply btn bg-red-600 text-white hover:bg-red-700;
   }
   .btn-success {
-    @apply btn bg-green-600 text-white hover:bg-green-700;
+    @apply btn text-white;
+    background-color: #24a148; /* Carbon green-50 */
   }
+  .btn-success:hover {
+    background-color: #198038; /* Carbon green-60 */
+  }
+  /* Carbon tiles: flat, hairline border, no shadow, square. */
   .card {
-    @apply rounded-lg border border-border bg-surface shadow-card;
+    @apply border border-border bg-surface;
   }
+  /* Carbon inputs: gray-10 fill, square, a bottom rule that turns blue on focus. */
   .input {
-    @apply block w-full rounded-lg border-0 bg-surface px-3 py-2 text-sm text-fg ring-1 ring-inset ring-border placeholder:text-faint focus:ring-2 focus:ring-inset focus:ring-brand-600;
+    @apply block w-full border-0 bg-surface-2 px-4 py-2.5 text-sm text-fg placeholder:text-faint;
+    box-shadow: inset 0 -1px 0 0 rgb(var(--fg));
+  }
+  .input:focus {
+    @apply outline-none;
+    box-shadow: inset 0 -2px 0 0 #0f62fe;
   }
   .label {
     @apply mb-1 block text-sm font-medium text-fg;
@@ -135,13 +150,12 @@ body {
 }
 *::-webkit-scrollbar-thumb {
   background: rgb(var(--border));
-  border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 ::selection {
-  background: rgb(var(--brand-selection, 37 99 235) / 0.2);
+  background: rgb(15 98 254 / 0.2);
 }
 
 @media print {

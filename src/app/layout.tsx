@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 
-// Inter — Frappe's typeface. Self-hosted by next/font; exposed as --font-inter
-// which the Tailwind `sans` stack points at.
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+// IBM Plex Sans — the Carbon/IBM typeface. Self-hosted by next/font; exposed as
+// --font-plex which the Tailwind `sans` stack points at. Weight 300 carries the
+// light display headings that are IBM's signature; 400/600 for body & emphasis.
+const plex = IBM_Plex_Sans({ subsets: ["latin"], weight: ["300", "400", "600"], variable: "--font-plex", display: "swap" });
 
 export const metadata: Metadata = {
   title: "ROQIT Billing",
@@ -17,7 +18,7 @@ const themeScript = `(function(){try{if(localStorage.getItem('sidebar')==='colla
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={plex.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

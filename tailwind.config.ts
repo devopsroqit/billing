@@ -6,14 +6,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand accent — ROQIT blue. Works on both light and dark surfaces.
+        // Brand accent — IBM Blue (Carbon blue-60 = #0f62fe), the single accent.
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
+          50: "#edf5ff",
+          100: "#d0e2ff",
+          200: "#a6c8ff",
+          500: "#4589ff",
+          600: "#0f62fe",
+          700: "#0043ce",
         },
         // Semantic tokens backed by CSS variables (see globals.css). These flip
         // automatically between light and dark, so the whole UI themes centrally.
@@ -26,12 +26,19 @@ const config: Config = {
         faint: "rgb(var(--faint) / <alpha-value>)",
       },
       fontFamily: {
-        // Inter (loaded in layout.tsx) with a system fallback — Frappe's typeface.
-        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
+        // IBM Plex Sans (loaded in layout.tsx) with a Carbon-spec fallback.
+        sans: ["var(--font-plex)", "Helvetica Neue", "Arial", "ui-sans-serif", "system-ui", "sans-serif"],
       },
+      // Carbon is flat & square: every corner is 0px (buttons, cards, inputs,
+      // tags, avatars). Mapping the whole scale to 0 squares every rounded-*.
+      borderRadius: {
+        none: "0", sm: "0", DEFAULT: "0", md: "0", lg: "0", xl: "0", "2xl": "0", "3xl": "0", full: "0",
+      },
+      // Carbon carries hierarchy with 1px hairlines, not shadows.
       boxShadow: {
-        sm: "0 1px 2px 0 rgb(24 24 27 / 0.05)",
-        card: "0 1px 2px 0 rgb(24 24 27 / 0.06)",
+        sm: "none",
+        card: "none",
+        DEFAULT: "none",
       },
     },
   },
