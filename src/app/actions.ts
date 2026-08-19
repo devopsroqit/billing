@@ -634,6 +634,49 @@ export async function deleteDevice(id: string) {
   redirect("/devices");
 }
 
+/**
+ * Attach existing devices to a purchase in bulk (from the Devices list).
+ * Also fills the vendor/supplier on any selected device that has none yet —
+ * never overwriting one that's already set.
+ */
+export async function linkDevicesToPurchase(
+  purchaseId: string,
+  deviceIds: string[],
+): Promise<{ ok?: true; linked?: number; error?: string }> {
+  const user = await requireEditor();
+  const ids = (deviceIds ?? []).filter((s) => typeof s === "string" && s.length > 0);
+  if (!purchaseId) return { error: "Pick a purchase to link to." };
+  if (ids.length === 0) return { error: "Select at least one device." };
+
+  const purchase = await prisma.purchase.findUnique({
+    where: { id: purchaseId },
+    select: { id: true, reference: true, supplierId: true, supplier: { select: { name: true } } },
+  });
+  if (!purchase) return { error: "That purchase no longer exists." };
+
+  const res = await prisma.device.updateMany({ where: { id: { in: ids } }, data: { purchaseId: purchase.id } });
+
+  // Fill in the vendor where blank (structured link + the displayed text), only
+  // for devices that don't already have one.
+  if (purchase.supplierId) {
+    await prisma.device.updateMany({
+      where: { id: { in: ids }, supplierId: null },
+      data: { supplierId: purchase.supplierId },
+    });
+  }
+  if (purchase.supplier?.name) {
+    await prisma.device.updateMany({
+      where: { id: { in: ids }, vendorName: null },
+      data: { vendorName: purchase.supplier.name },
+    });
+  }
+
+  await audit(user.id, "UPDATE", "Device", undefined, `linked ${res.count} device(s) → purchase ${purchase.reference ?? purchase.id}`);
+  revalidatePath("/devices");
+  revalidatePath(`/purchases/${purchase.id}`);
+  return { ok: true, linked: res.count };
+}
+
 // --- Deployment (assignment / movement) ------------------------------------
 const deploymentSchema = z.object({
   deviceId: z.string(),
