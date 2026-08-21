@@ -243,6 +243,17 @@ export function isTaskClosed(status: string): boolean {
   return (CLOSED_TASK_STATUSES as string[]).includes(status);
 }
 
+// --- Deal part-payments ------------------------------------------------------
+// Which stage of the engagement a received part-payment is for.
+export const PAYMENT_MILESTONES = ["ADVANCE", "IN_PROGRESS", "ON_COMPLETION", "OTHER"] as const;
+export type PaymentMilestone = (typeof PAYMENT_MILESTONES)[number];
+export const PAYMENT_MILESTONE_LABELS: Record<PaymentMilestone, string> = {
+  ADVANCE: "Advance",
+  IN_PROGRESS: "In progress",
+  ON_COMPLETION: "On completion",
+  OTHER: "Other",
+};
+
 // --- Activity audit log ------------------------------------------------------
 // Activity is a read-only system audit log. `action` is what happened;
 // `entityType` is what it happened to. Both drive the timeline's icon + copy.

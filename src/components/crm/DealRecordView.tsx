@@ -8,6 +8,7 @@ import { InlineField } from "@/components/crm/InlineField";
 import { ActivityAuditFeed, type ActivityAuditItem } from "@/components/crm/ActivityAuditFeed";
 import { NotePanel, type NoteItem } from "@/components/crm/NotePanel";
 import { TaskPanel, type TaskItem } from "@/components/crm/TaskPanel";
+import { DealPaymentPanel, type PaymentItem } from "@/components/crm/DealPaymentPanel";
 import { ContributorsPanel } from "@/components/crm/ContributorsPanel";
 import { DealActions } from "@/components/crm/DealActions";
 import { majorToMinor, minorToMajor, formatMoney } from "@/lib/money";
@@ -46,7 +47,7 @@ export type DealData = {
   projectCompletedLabel: string | null;
 };
 
-const TABS = ["Overview", "Activity", "Notes", "Tasks", "People", "Team", "Documents"] as const;
+const TABS = ["Overview", "Activity", "Notes", "Tasks", "Payments", "People", "Team", "Documents"] as const;
 type Tab = (typeof TABS)[number];
 
 const fmtDate = (v: string) => {
@@ -61,6 +62,7 @@ export function DealRecordView({
   auditItems,
   noteItems,
   taskItems,
+  paymentItems,
   people,
   contributorIds,
   nextDueTaskLabel,
@@ -74,6 +76,7 @@ export function DealRecordView({
   auditItems: ActivityAuditItem[];
   noteItems: NoteItem[];
   taskItems: TaskItem[];
+  paymentItems: PaymentItem[];
   people: PersonItem[];
   contributorIds: string[];
   nextDueTaskLabel: string | null;
@@ -93,6 +96,10 @@ export function DealRecordView({
   const moneyValue = (minor: number) => (minor ? String(minorToMajor(minor)) : "");
   const moneyRender = (v: string) => formatMoney(v ? majorToMinor(Number(v)) : 0, currency);
 
+  // Part-payments: total received so far and the outstanding balance.
+  const receivedMinor = paymentItems.reduce((sum, p) => sum + p.amountMinor, 0);
+  const balanceMinor = deal.amountMinor - receivedMinor;
+
   return (
     <div className="lg:flex lg:h-screen lg:-my-8 lg:-mr-8 lg:overflow-hidden">
       {/* MAIN */}
@@ -105,7 +112,7 @@ export function DealRecordView({
 
         <div className="mb-4 flex items-center gap-2 border-b border-border">
           {TABS.map((t) => {
-            const count = t === "Notes" ? noteItems.length : t === "Tasks" ? taskItems.length : t === "People" ? people.length : t === "Team" ? contributorIds.length + 1 : t === "Activity" ? auditItems.length : t === "Documents" ? docCount : null;
+            const count = t === "Notes" ? noteItems.length : t === "Tasks" ? taskItems.length : t === "Payments" ? paymentItems.length : t === "People" ? people.length : t === "Team" ? contributorIds.length + 1 : t === "Activity" ? auditItems.length : t === "Documents" ? docCount : null;
             return (
               <button
                 key={t}
@@ -129,6 +136,12 @@ export function DealRecordView({
               <Highlight label="ARR value">{formatMoney(deal.arrMinor, currency)}</Highlight>
               <Highlight label="Commercial model">{deal.commercialModel ? COMMERCIAL_MODEL_LABELS[deal.commercialModel as CommercialModel] ?? deal.commercialModel : "—"}</Highlight>
               <Highlight label="Next due task">{nextDueTaskLabel ?? "No next due task"}</Highlight>
+              <Highlight label="Cash received">
+                <span className="font-semibold text-emerald-600">{formatMoney(receivedMinor, currency)}</span>
+                {balanceMinor > 0
+                  ? <span className="block text-xs text-amber-600">Balance {formatMoney(balanceMinor, currency)}</span>
+                  : deal.amountMinor > 0 && <span className="block text-xs text-emerald-600">Fully paid</span>}
+              </Highlight>
             </div>
             {deal.nextAction && (
               <div className="card p-4">
@@ -155,6 +168,10 @@ export function DealRecordView({
 
         {tab === "Tasks" && (
           <TaskPanel tasks={taskItems} users={users} anchor={{ dealId: deal.id }} editable={editable} />
+        )}
+
+        {tab === "Payments" && (
+          <DealPaymentPanel payments={paymentItems} anchor={{ dealId: deal.id }} agreedMinor={deal.amountMinor} currency={currency} editable={editable} />
         )}
 
         {tab === "People" && (

@@ -24,6 +24,7 @@ async function main() {
   await prisma.task.deleteMany();
   await prisma.activity.deleteMany();
   await prisma.dealContributor.deleteMany();
+  await prisma.dealPayment.deleteMany();
   await prisma.deal.deleteMany();
   await prisma.contact.deleteMany();
   await prisma.company.deleteMany();
@@ -347,6 +348,14 @@ async function main() {
       body: "Emailed cold-chain sensor spec + pricing grid.",
       companyId: coastal.id, authorId: admin.id,
     },
+  });
+
+  // Part-payments — the bharat deal (₹18,50,000, CASH_RECEIVED) was paid in parts.
+  await prisma.dealPayment.create({
+    data: { dealId: bharatDeal.id, amountMinor: inr(925000), currency: "INR", milestone: "ADVANCE", receivedAt: d(2026, 5, 12), reference: "Advance 50%", authorId: editor.id },
+  });
+  await prisma.dealPayment.create({
+    data: { dealId: bharatDeal.id, amountMinor: inr(925000), currency: "INR", milestone: "ON_COMPLETION", receivedAt: d(2026, 6, 28), reference: "Final 50%", authorId: editor.id },
   });
 
   // Deal contributors (collaboration) — greenfleet deal is owned by editor,

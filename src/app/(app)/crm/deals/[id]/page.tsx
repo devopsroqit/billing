@@ -5,7 +5,7 @@ import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { DocumentForm, DeleteDocButton } from "@/components/DocumentForm";
 import { DealRecordView } from "@/components/crm/DealRecordView";
 import { toTaskItem } from "@/lib/tasks";
-import { toAuditItem, toNoteItem } from "@/lib/crm-feed";
+import { toAuditItem, toNoteItem, toPaymentItem } from "@/lib/crm-feed";
 import { isTaskClosed } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +33,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
       tasks: {
         orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
       },
+      payments: { orderBy: [{ receivedAt: "desc" }, { createdAt: "desc" }] },
       contributors: { orderBy: { createdAt: "asc" }, select: { userId: true } },
     },
   });
@@ -63,6 +64,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
   const taskItems = deal.tasks.map((t) => toTaskItem(t, userName));
   const auditItems = deal.activities.map((a) => toAuditItem(a, userName));
   const noteItems = deal.noteEntries.map((n) => toNoteItem(n, userName));
+  const paymentItems = deal.payments.map((p) => toPaymentItem(p, userName));
   const contributorIds = deal.contributors.map((c) => c.userId);
 
   // Earliest open (not closed) task with a due date → the "Next due task" highlight.
@@ -127,6 +129,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
         auditItems={auditItems}
         noteItems={noteItems}
         taskItems={taskItems}
+        paymentItems={paymentItems}
         people={people}
         contributorIds={contributorIds}
         nextDueTaskLabel={nextDueTaskLabel}

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSessionUser, logout } from "@/lib/auth";
-import { majorToMinor } from "@/lib/money";
+import { majorToMinor, formatMoney } from "@/lib/money";
 import { logActivity, parseMentions } from "@/lib/activity";
 import { notify, notifyMany, resolveMentions } from "@/lib/notify";
 import {
@@ -18,6 +18,8 @@ import {
   isTerminalStage,
   TASK_PRIORITIES,
   TASK_STATUSES,
+  PAYMENT_MILESTONES,
+  type Currency,
 } from "@/lib/constants";
 
 // CRM server actions. Kept separate from the large src/app/actions.ts. Same
@@ -654,6 +656,61 @@ export async function deleteNote(id: string) {
   if (n.companyId) revalidatePath(`/crm/companies/${n.companyId}`);
   if (n.contactId) revalidatePath(`/crm/contacts/${n.contactId}`);
   if (n.dealId) revalidatePath(`/crm/deals/${n.dealId}`);
+}
+
+// ===========================================================================
+// Deal part-payments — record cash received against a deal, in installments
+// ===========================================================================
+export async function saveDealPayment(input: {
+  dealId: string;
+  amount: string; // major units, e.g. rupees
+  milestone: string;
+  receivedAt?: string; // yyyy-mm-dd
+  reference?: string;
+}) {
+  const user = await requireCrmEditor();
+  if (!input.dealId) return { error: "Missing deal." };
+  const amountMinor = orMinor(input.amount);
+  if (amountMinor <= 0) return { error: "Enter an amount greater than zero." };
+  const milestone = (PAYMENT_MILESTONES as readonly string[]).includes(input.milestone) ? input.milestone : "OTHER";
+
+  const deal = await prisma.deal.findUnique({ where: { id: input.dealId }, select: { id: true, currency: true } });
+  if (!deal) return { error: "That deal no longer exists." };
+
+  await prisma.dealPayment.create({
+    data: {
+      dealId: deal.id,
+      amountMinor,
+      currency: deal.currency,
+      milestone,
+      receivedAt: parseDate(input.receivedAt) ?? new Date(),
+      reference: orNull(input.reference),
+      authorId: user.id,
+    },
+  });
+  await audit(user.id, "CREATE", "DealPayment", deal.id, formatMoney(amountMinor, deal.currency as Currency));
+  await logActivity({
+    actorId: user.id,
+    action: "CREATED",
+    entityType: "DEAL",
+    entityId: deal.id,
+    summary: `Recorded a payment of ${formatMoney(amountMinor, deal.currency as Currency)}`,
+    newValue: formatMoney(amountMinor, deal.currency as Currency),
+    dealId: deal.id,
+  });
+  revalidatePath(`/crm/deals/${deal.id}`);
+  revalidatePath("/crm/deals"); // the "Cash received" KPI lives on the list page
+  return { ok: true };
+}
+
+export async function deleteDealPayment(id: string) {
+  const user = await requireCrmEditor();
+  const p = await prisma.dealPayment.findUnique({ where: { id } });
+  if (!p) return;
+  await prisma.dealPayment.delete({ where: { id } });
+  await audit(user.id, "DELETE", "DealPayment", p.dealId, formatMoney(p.amountMinor, p.currency as Currency));
+  revalidatePath(`/crm/deals/${p.dealId}`);
+  revalidatePath("/crm/deals");
 }
 
 // ===========================================================================
