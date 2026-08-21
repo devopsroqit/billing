@@ -423,6 +423,7 @@ model Deal {
   tasks          Task[]
   noteEntries    Note[]
   contributors   DealContributor[]
+  payments       DealPayment[]
 
   @@index([stage])
   @@index([companyId])
@@ -515,6 +516,26 @@ model Note {
   @@index([dealId])
   @@index([companyId])
   @@index([contactId])
+}
+
+// A part-payment received against a deal. A deal's agreed value (Deal.amountMinor)
+// is often paid in installments (advance / in progress / on completion); each
+// received amount is logged here. Total received = sum(amountMinor) per deal.
+model DealPayment {
+  id          String    @id @default(cuid())
+  dealId      String
+  amountMinor Int       @default(0)
+  currency    String    @default("INR") // copied from the parent deal
+  milestone   String    @default("OTHER") // PAYMENT_MILESTONES
+  receivedAt  DateTime? // when the money came in
+  reference   String? // optional note / txn reference
+  authorId    String? // who logged it
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
 }
 
 // A unit of work assigned to a team member (internal) or an external person.

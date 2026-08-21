@@ -55,10 +55,13 @@ export default async function DealsPage({
 
   // KPIs reflect the WHOLE pipeline, independent of the search/stage filter, so
   // the headline numbers stay stable as you filter the board/list below.
-  const [kpiDeals, overdueTaskCount] = await Promise.all([
+  const [kpiDeals, overdueTaskCount, paymentAgg] = await Promise.all([
     prisma.deal.findMany({ select: { stage: true, amountMinor: true, arrMinor: true, lossReason: true, active: true } }),
     prisma.task.count({ where: { dealId: { not: null }, status: { notIn: ["DONE", "CANCELLED"] }, dueAt: { lt: new Date() } } }),
+    prisma.dealPayment.aggregate({ _sum: { amountMinor: true }, _count: true }),
   ]);
+  const cashReceivedMinor = paymentAgg._sum.amountMinor ?? 0;
+  const paymentCount = paymentAgg._count;
   let openValueMinor = 0, openDeals = 0, wonValueMinor = 0, wonArrMinor = 0, wonDeals = 0, lostDeals = 0;
   for (const d of kpiDeals) {
     const lost = !!d.lossReason?.trim();
@@ -138,7 +141,7 @@ export default async function DealsPage({
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
         <Stat label="Open pipeline" value={formatMoneyCompact(openValueMinor, "INR")} hint={`${openDeals} open deal${openDeals === 1 ? "" : "s"}`} />
         <Stat label="Open deals" value={String(openDeals)} />
         <Stat label="Won value" value={formatMoneyCompact(wonValueMinor, "INR")} tone="success" hint={`${wonDeals} won`} />
@@ -149,6 +152,7 @@ export default async function DealsPage({
           hint={winRate === null ? "no closed deals yet" : `${wonDeals} won · ${lostDeals} lost`}
         />
         <Stat label="ARR (won)" value={formatMoneyCompact(wonArrMinor, "INR")} tone="success" />
+        <Stat label="Cash received" value={formatMoneyCompact(cashReceivedMinor, "INR")} tone="success" hint={`${paymentCount} payment${paymentCount === 1 ? "" : "s"}`} />
         <Stat
           label="Overdue tasks"
           value={String(overdueTaskCount)}
