@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -125,7 +126,13 @@ function ToastStack({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: nu
   };
   const icon: Record<ToastKind, string> = { success: "✓", error: "!", info: "i" };
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-end gap-2 px-4 sm:right-4 sm:left-auto sm:items-end">
+    <div
+      aria-label="Notifications"
+      aria-live="polite"
+      aria-atomic="false"
+      role="region"
+      className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-end gap-2 px-4 sm:right-4 sm:left-auto sm:items-end"
+    >
       {toasts.map((t) => (
         <div
           key={t.id}
@@ -159,6 +166,48 @@ function ConfirmModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Escape closes, and keyboard focus is trapped inside the modal for its
+  // lifetime. When the modal closes, focus returns to whatever launched it.
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
+    const focusables = () => {
+      if (!panelRef.current) return [] as HTMLElement[];
+      return Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      } else if (e.key === "Tab") {
+        const list = focusables();
+        if (list.length === 0) return;
+        const first = list[0];
+        const last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      previousFocusRef.current?.focus?.();
+    };
+  }, [onCancel]);
+
   return (
     <div
       role="dialog"
@@ -167,7 +216,7 @@ function ConfirmModal({
       className="fixed inset-0 z-[70] flex items-center justify-center px-4"
     >
       <div className="modal-backdrop absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="modal-in relative w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl">
+      <div ref={panelRef} className="modal-in relative w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl">
         <h2 id="confirm-title" className="text-base font-semibold text-fg">
           {opts.title}
         </h2>
