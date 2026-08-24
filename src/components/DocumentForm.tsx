@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addDocument, deleteDocument } from "@/app/actions";
+import { useConfirm, useToast } from "@/components/ui/AppChrome";
 
 // A document attaches to exactly one owner — a payment entry, a purchase, a
 // device, or a CRM record (deal / company / contact). Pass whichever id applies.
@@ -99,12 +100,16 @@ export function DocumentForm({
 
 export function DeleteDocButton({ id }: { id: string }) {
   const [pending, start] = useTransition();
+  const confirm = useConfirm();
+  const toast = useToast();
   return (
     <button
       className="text-xs text-red-600 hover:underline disabled:opacity-50"
       disabled={pending}
-      onClick={() => {
-        if (confirm("Remove this document?")) start(() => deleteDocument(id));
+      onClick={async () => {
+        const ok = await confirm({ title: "Remove this document?", body: "The file link is detached from the record.", confirmLabel: "Remove", danger: true });
+        if (!ok) return;
+        start(() => deleteDocument(id).then(() => toast.success("Document removed.")));
       }}
     >
       Remove

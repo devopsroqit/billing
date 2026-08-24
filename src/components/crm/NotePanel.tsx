@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveNote, deleteNote } from "@/app/crm-actions";
+import { useConfirm, useToast } from "@/components/ui/AppChrome";
 
 export type NoteItem = {
   id: string;
@@ -23,6 +24,8 @@ export function NotePanel({
   editable: boolean;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -37,6 +40,7 @@ export function NotePanel({
         setError(r.error);
       } else {
         setBody("");
+        toast.success("Note added.");
         router.refresh();
       }
     });
@@ -74,7 +78,13 @@ export function NotePanel({
                 {editable && (
                   <button
                     className="text-xs text-red-600 hover:underline"
-                    onClick={() => { if (confirm("Delete this note?")) deleteNote(n.id).then(() => router.refresh()); }}
+                    onClick={async () => {
+                      const ok = await confirm({ title: "Delete this note?", body: "This can't be undone.", confirmLabel: "Delete", danger: true });
+                      if (!ok) return;
+                      await deleteNote(n.id);
+                      toast.success("Note deleted.");
+                      router.refresh();
+                    }}
                   >
                     Delete
                   </button>

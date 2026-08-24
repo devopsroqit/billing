@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { saveDealPayment, deleteDealPayment } from "@/app/crm-actions";
 import { formatMoney } from "@/lib/money";
 import { PAYMENT_MILESTONES, PAYMENT_MILESTONE_LABELS, type Currency } from "@/lib/constants";
+import { useConfirm, useToast } from "@/components/ui/AppChrome";
 
 export type PaymentItem = {
   id: string;
@@ -33,6 +34,8 @@ export function DealPaymentPanel({
   editable: boolean;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [amount, setAmount] = useState("");
   const [milestone, setMilestone] = useState<string>("ADVANCE");
   const [receivedAt, setReceivedAt] = useState(today());
@@ -52,6 +55,7 @@ export function DealPaymentPanel({
       } else {
         setAmount("");
         setReference("");
+        toast.success("Payment recorded.");
         router.refresh();
       }
     });
@@ -117,7 +121,13 @@ export function DealPaymentPanel({
               {editable && (
                 <button
                   className="shrink-0 text-xs text-red-600 hover:underline"
-                  onClick={() => { if (confirm("Delete this payment?")) deleteDealPayment(p.id).then(() => router.refresh()); }}
+                  onClick={async () => {
+                    const ok = await confirm({ title: "Delete this payment?", body: "This can't be undone.", confirmLabel: "Delete", danger: true });
+                    if (!ok) return;
+                    await deleteDealPayment(p.id);
+                    toast.success("Payment deleted.");
+                    router.refresh();
+                  }}
                 >
                   Delete
                 </button>

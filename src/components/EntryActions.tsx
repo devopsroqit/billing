@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { markPaid, markPending, deleteEntry } from "@/app/actions";
+import { useConfirm, useToast } from "@/components/ui/AppChrome";
 
 // Compact inline actions for a payment row. Only rendered for editors/admins.
 export function EntryActions({
@@ -14,6 +15,8 @@ export function EntryActions({
   status: string;
   editHref: string;
 }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [pending, start] = useTransition();
 
   return (
@@ -22,7 +25,7 @@ export function EntryActions({
         <button
           className="rounded px-2 py-1 text-xs font-medium text-green-700 hover:bg-emerald-500/10 disabled:opacity-50"
           disabled={pending}
-          onClick={() => start(() => markPaid(id))}
+          onClick={() => start(() => markPaid(id).then(() => toast.success("Marked as paid.")))}
           title="Mark as paid (today)"
         >
           ✓ Paid
@@ -31,7 +34,7 @@ export function EntryActions({
         <button
           className="rounded px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 disabled:opacity-50"
           disabled={pending}
-          onClick={() => start(() => markPending(id))}
+          onClick={() => start(() => markPending(id).then(() => toast.success("Reopened as pending.")))}
           title="Reopen as pending"
         >
           ↺ Reopen
@@ -43,8 +46,10 @@ export function EntryActions({
       <button
         className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50"
         disabled={pending}
-        onClick={() => {
-          if (confirm("Delete this row?")) start(() => deleteEntry(id));
+        onClick={async () => {
+          const ok = await confirm({ title: "Delete this row?", body: "This can't be undone.", confirmLabel: "Delete", danger: true });
+          if (!ok) return;
+          start(() => deleteEntry(id).then(() => toast.success("Row deleted.")));
         }}
         title="Delete row"
       >

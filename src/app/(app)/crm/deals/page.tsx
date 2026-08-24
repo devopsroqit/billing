@@ -10,7 +10,7 @@ import {
   type DealStage,
   type Currency,
 } from "@/lib/constants";
-import { PageHeader, StatusBadge, Stat } from "@/components/ui";
+import { PageHeader, StatusBadge, Stat, EmptyState } from "@/components/ui";
 import { DealBoard, type BoardDeal } from "@/components/crm/DealBoard";
 
 // Stages at/after a signed contract count as "won"; a deal with a loss reason
@@ -184,18 +184,26 @@ export default async function DealsPage({
 
       {view === "board" ? (
         rows.length === 0 && q ? (
-          <div className="card p-10 text-center">
-            <p className="text-sm font-medium text-fg">No deals match “{q}”.</p>
-            <p className="mt-1 text-sm text-muted">Try clearing the search.</p>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title={`No deals match “${q}”`}
+            hint="Try clearing the search or switching to List view."
+            action={<Link href={qs({ q: "" })} className="btn-secondary">Clear search</Link>}
+          />
         ) : (
           <DealBoard deals={boardDeals} editable={editable} />
         )
       ) : rows.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-sm font-medium text-fg">No deals found</p>
-          <p className="mt-1 text-sm text-muted">{q || stage ? "Try clearing the filters." : "Create your first deal to get started."}</p>
-        </div>
+        <EmptyState
+          icon="💼"
+          title="No deals found"
+          hint={q || stage ? "Try clearing the filters — you may be filtered to an empty stage." : "Track your sales pipeline end-to-end, from lead to cash received."}
+          action={
+            (q || stage)
+              ? <Link href={qs({ q: "", stage: "" })} className="btn-secondary">Clear filters</Link>
+              : editable ? <Link href="/crm/deals/new" className="btn-primary">Create your first deal</Link> : null
+          }
+        />
       ) : (
         <div className="card overflow-x-auto">
           <table className="min-w-full divide-y divide-border">

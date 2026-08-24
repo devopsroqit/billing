@@ -18,6 +18,7 @@ import {
 import { formatMoney } from "@/lib/money";
 import { DEAL_STAGES, DEAL_STAGE_LABELS, type DealStage } from "@/lib/constants";
 import { updateDealStage } from "@/app/crm-actions";
+import { useToast } from "@/components/ui/AppChrome";
 
 export type BoardDeal = {
   id: string;
@@ -37,6 +38,7 @@ export type BoardDeal = {
 // revert on failure). Read-only for viewers (no drag handles attached).
 export function DealBoard({ deals, editable }: { deals: BoardDeal[]; editable: boolean }) {
   const router = useRouter();
+  const toast = useToast();
   const [items, setItems] = useState<BoardDeal[]>(deals);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -68,9 +70,10 @@ export function DealBoard({ deals, editable }: { deals: BoardDeal[]; editable: b
     const res = await updateDealStage(id, newStage);
     if (res && "error" in res && res.error) {
       setItems((cur) => cur.map((d) => (d.id === id ? { ...d, stage: prevStage } : d))); // revert
-      alert(res.error);
+      toast.error(res.error);
       return;
     }
+    toast.success(`Moved to ${DEAL_STAGE_LABELS[newStage as DealStage] ?? newStage}.`);
     router.refresh();
   }
 

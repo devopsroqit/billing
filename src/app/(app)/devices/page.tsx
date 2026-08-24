@@ -8,7 +8,7 @@ import {
   type DeviceStatus,
   type Currency,
 } from "@/lib/constants";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, EmptyState } from "@/components/ui";
 import { DeviceBulkUpload } from "@/components/DeviceBulkUpload";
 import { DevicesTable, type DeviceRow } from "@/components/DevicesTable";
 import { format } from "date-fns";
@@ -141,10 +141,16 @@ export default async function DevicesPage({
       </form>
 
       {rows.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-sm font-medium text-fg">No devices found.</p>
-          {editable && <p className="mt-1 text-sm text-muted">Add devices directly, or from a purchase.</p>}
-        </div>
+        <EmptyState
+          icon="📦"
+          title="No devices found"
+          hint={(status || supplierId || purchaseId || q) ? "Try clearing the filters." : "Add IoT devices individually, upload a spreadsheet, or link them to a purchase order."}
+          action={
+            (status || supplierId || purchaseId || q)
+              ? <Link href="/devices" className="btn-secondary">Clear filters</Link>
+              : editable ? <Link href="/devices/new" className="btn-primary">Add your first device</Link> : null
+          }
+        />
       ) : (
         <DevicesTable rows={rows} purchases={purchaseOptions} editable={editable} />
       )}
