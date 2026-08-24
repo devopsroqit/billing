@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { ACTIVITY_ACTION_ICONS, type ActivityAction } from "@/lib/constants";
 import { addActivityComment, deleteActivityComment } from "@/app/crm-actions";
+import { useConfirm } from "@/components/ui/AppChrome";
 
 export type CommentItem = {
   id: string;
@@ -129,12 +130,23 @@ function ActivityRow({ activity, editable }: { activity: ActivityAuditItem; edit
 }
 
 function Comment({ c, editable, onDelete }: { c: CommentItem; editable: boolean; onDelete: () => void }) {
+  const confirm = useConfirm();
   return (
     <div className="text-sm">
       <p className="whitespace-pre-wrap text-fg">{withMentions(c.body)}</p>
       <div className="flex items-center gap-2 text-xs text-faint">
         <span>{c.authorName ?? "—"} · {c.whenLabel}</span>
-        {editable && <button className="text-red-600 hover:underline" onClick={() => { if (confirm("Delete this comment?")) onDelete(); }}>Delete</button>}
+        {editable && (
+          <button
+            className="text-red-600 hover:underline"
+            onClick={async () => {
+              const ok = await confirm({ title: "Delete this comment?", body: "This can't be undone.", confirmLabel: "Delete", danger: true });
+              if (ok) onDelete();
+            }}
+          >
+            Delete
+          </button>
+        )}
       </div>
     </div>
   );

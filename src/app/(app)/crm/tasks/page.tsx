@@ -11,7 +11,7 @@ import {
   type TaskStatus,
   type TaskPriority,
 } from "@/lib/constants";
-import { PageHeader, StatusBadge } from "@/components/ui";
+import { PageHeader, StatusBadge, EmptyState } from "@/components/ui";
 import { TaskStatusSelect } from "@/components/crm/TaskStatusSelect";
 
 export const dynamic = "force-dynamic";
@@ -68,10 +68,12 @@ export default async function MyTasksPage({ searchParams }: { searchParams: { st
       </form>
 
       {tasks.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-sm font-medium text-fg">No tasks</p>
-          <p className="mt-1 text-sm text-muted">{status ? "Try clearing the filter." : "Tasks assigned to or created by you will show here."}</p>
-        </div>
+        <EmptyState
+          icon="✓"
+          title="Nothing on your plate"
+          hint={status ? "Try clearing the filter." : "Tasks assigned to or created by you will show here. Add tasks from any deal, company, or contact."}
+          action={status ? <Link href="/crm/tasks" className="btn-secondary">Clear filter</Link> : null}
+        />
       ) : (
         <div className="card overflow-x-auto">
           <table className="min-w-full divide-y divide-border">

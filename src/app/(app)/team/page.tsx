@@ -6,6 +6,7 @@ import { toggleUserActive, deleteUser } from "@/app/actions";
 import { ROLE_LABELS, ROLE_HINTS, type Role } from "@/lib/constants";
 import { PageHeader, StatusBadge } from "@/components/ui";
 import { DeleteButton } from "@/components/DeleteButton";
+import { emailConfigured } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function TeamPage() {
   if (!me || !canManageUsers(me.role)) redirect("/");
 
   const users = await prisma.user.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] });
+  const emailOn = emailConfigured();
 
   return (
     <div>
@@ -22,6 +24,28 @@ export default async function TeamPage() {
         subtitle="Give office members access with the right permissions."
         action={<Link href="/team/new" className="btn-primary">Add member</Link>}
       />
+
+      {/* Email deliverability status. Admin-only page, so it's fine to surface
+          the raw config state — the message tells whoever is here what to do. */}
+      <div className={`mb-4 flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
+        emailOn
+          ? "border-emerald-500/30 bg-emerald-50 text-emerald-900"
+          : "border-amber-500/30 bg-amber-50 text-amber-900"
+      }`}>
+        <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${emailOn ? "bg-emerald-600 text-white" : "bg-amber-600 text-white"}`}>
+          {emailOn ? "✓" : "!"}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">
+            {emailOn ? "Email delivery is active." : "Email delivery is not configured."}
+          </p>
+          <p className="mt-0.5 text-xs opacity-90">
+            {emailOn
+              ? "Welcome emails and notifications are being sent via Resend."
+              : "Welcome emails and notifications are being logged but not sent. Set RESEND_API_KEY and EMAIL_FROM in the environment to turn on delivery."}
+          </p>
+        </div>
+      </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         {(["ADMIN", "EDITOR", "VIEWER"] as Role[]).map((r) => (

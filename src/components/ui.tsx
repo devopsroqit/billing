@@ -35,11 +35,27 @@ export function PageHeader({
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+export function EmptyState({
+  title,
+  hint,
+  icon,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="card p-10 text-center">
+    <div className="card flex flex-col items-center justify-center p-10 text-center">
+      {icon && (
+        <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-2xl text-muted">
+          {icon}
+        </div>
+      )}
       <p className="text-sm font-medium text-fg">{title}</p>
-      {hint && <p className="mt-1 text-sm text-muted">{hint}</p>}
+      {hint && <p className="mt-1 max-w-md text-sm text-muted">{hint}</p>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

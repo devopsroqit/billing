@@ -12,6 +12,7 @@ import {
   type TaskStatus,
 } from "@/lib/constants";
 import { saveTask, updateTaskStatus, toggleTaskDone, deleteTask } from "@/app/crm-actions";
+import { useConfirm, useToast } from "@/components/ui/AppChrome";
 
 export type TaskItem = {
   id: string;
@@ -44,6 +45,8 @@ export function TaskPanel({
   editable: boolean;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -57,7 +60,7 @@ export function TaskPanel({
             <TaskForm
               users={users}
               anchor={anchor}
-              onSaved={() => { setAdding(false); refresh(); }}
+              onSaved={() => { setAdding(false); toast.success("Task added."); refresh(); }}
               onCancel={() => setAdding(false)}
             />
           ) : (
@@ -78,7 +81,7 @@ export function TaskPanel({
                     task={t}
                     users={users}
                     anchor={anchor}
-                    onSaved={() => { setEditingId(null); refresh(); }}
+                    onSaved={() => { setEditingId(null); toast.success("Task updated."); refresh(); }}
                     onCancel={() => setEditingId(null)}
                   />
                 </div>
@@ -120,7 +123,13 @@ export function TaskPanel({
                     </button>
                     <button
                       className="text-xs text-red-600 hover:underline"
-                      onClick={() => { if (confirm("Delete this task?")) deleteTask(t.id).then(refresh); }}
+                      onClick={async () => {
+                        const ok = await confirm({ title: "Delete this task?", body: "This can't be undone.", confirmLabel: "Delete", danger: true });
+                        if (!ok) return;
+                        await deleteTask(t.id);
+                        toast.success("Task deleted.");
+                        refresh();
+                      }}
                     >
                       Delete
                     </button>

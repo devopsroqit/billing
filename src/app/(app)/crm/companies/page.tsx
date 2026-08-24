@@ -8,7 +8,7 @@ import {
   RELATIONSHIP_TYPE_LABELS,
   type RelationshipType,
 } from "@/lib/constants";
-import { PageHeader, StatusBadge } from "@/components/ui";
+import { PageHeader, StatusBadge, EmptyState } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -92,10 +92,16 @@ export default async function CompaniesPage({
       </form>
 
       {rows.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-sm font-medium text-fg">No companies found</p>
-          <p className="mt-1 text-sm text-muted">{q || type || category ? "Try clearing the filters." : "Create your first company to get started."}</p>
-        </div>
+        <EmptyState
+          icon="🏢"
+          title="No companies found"
+          hint={q || type || category ? "Try clearing the filters." : "Add the organizations you sell to, partner with, and buy from — one place for the whole team."}
+          action={
+            (q || type || category)
+              ? <Link href="/crm/companies" className="btn-secondary">Clear filters</Link>
+              : editable ? <Link href="/crm/companies/new" className="btn-primary">Create your first company</Link> : null
+          }
+        />
       ) : (
         <div className="card overflow-x-auto">
           <table className="min-w-full divide-y divide-border">

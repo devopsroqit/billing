@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEditCRM } from "@/lib/auth";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, EmptyState } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +49,16 @@ export default async function ContactsPage({ searchParams }: { searchParams: { q
       </form>
 
       {rows.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-sm font-medium text-fg">No contacts found</p>
-          <p className="mt-1 text-sm text-muted">{q ? "Try a different search." : "Add your first contact."}</p>
-        </div>
+        <EmptyState
+          icon="👤"
+          title="No contacts found"
+          hint={q ? "Try a different search." : "Add people at your companies so you can reach the right person from any deal."}
+          action={
+            q
+              ? <Link href="/crm/contacts" className="btn-secondary">Clear search</Link>
+              : editable ? <Link href="/crm/contacts/new" className="btn-primary">Add your first contact</Link> : null
+          }
+        />
       ) : (
         <div className="card overflow-x-auto">
           <table className="min-w-full divide-y divide-border">
