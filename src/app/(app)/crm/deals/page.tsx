@@ -12,6 +12,10 @@ import {
 } from "@/lib/constants";
 import { PageHeader, StatusBadge, Stat, EmptyState } from "@/components/ui";
 import { DealBoard, type BoardDeal } from "@/components/crm/DealBoard";
+import { Pager } from "@/components/Pager";
+
+const PAGE_SIZE = 50;
+const BOARD_CAP = 500;
 
 // Stages at/after a signed contract count as "won"; a deal with a loss reason
 // counts as lost. Used for the KPI strip.
@@ -22,7 +26,7 @@ export const dynamic = "force-dynamic";
 export default async function DealsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; stage?: string; view?: string };
+  searchParams: { q?: string; stage?: string; view?: string; page?: string };
 }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
@@ -32,23 +36,41 @@ export default async function DealsPage({
   const view = searchParams.view === "list" ? "list" : "board";
   const q = (searchParams.q ?? "").trim();
   const stage = searchParams.stage ?? "";
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
-  const deals = await prisma.deal.findMany({
-    // The board always shows every stage as a column, so it ignores the stage
-    // filter; the list honours it.
-    where: view === "list" && stage ? { stage } : undefined,
-    orderBy: { createdAt: "desc" },
-    include: {
-      company: { select: { name: true } },
-      // The earliest open task on the deal → the "Next due task" column / card line.
-      tasks: {
-        where: { status: { notIn: ["DONE", "CANCELLED"] } },
-        orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-        take: 1,
-        select: { title: true, dueAt: true },
+  // Server-side search matches title or company name — mirrors what the board
+  // and list both need. The stage filter only applies to the list view (the
+  // board renders every stage as a column, so stage would filter columns out).
+  const whereBase: Record<string, unknown> = {};
+  if (q) {
+    whereBase.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { company: { is: { name: { contains: q, mode: "insensitive" } } } },
+    ];
+  }
+  const whereList = { ...whereBase, ...(stage ? { stage } : {}) };
+
+  // Board fetches the whole (matching) pipeline up to a hard safety cap; list
+  // paginates. `totalList` is used by the pager on the list view.
+  const [deals, totalList] = await Promise.all([
+    prisma.deal.findMany({
+      where: view === "list" ? whereList : whereBase,
+      orderBy: view === "list" ? [{ createdAt: "desc" }] : { createdAt: "desc" },
+      skip: view === "list" ? (page - 1) * PAGE_SIZE : 0,
+      take: view === "list" ? PAGE_SIZE : BOARD_CAP,
+      include: {
+        company: { select: { name: true } },
+        // The earliest open task on the deal → the "Next due task" column / card line.
+        tasks: {
+          where: { status: { notIn: ["DONE", "CANCELLED"] } },
+          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+          take: 1,
+          select: { title: true, dueAt: true },
+        },
       },
-    },
-  });
+    }),
+    view === "list" ? prisma.deal.count({ where: whereList }) : Promise.resolve(0),
+  ]);
 
   const users = await prisma.user.findMany({ select: { id: true, name: true } });
   const userName = new Map(users.map((u) => [u.id, u.name]));
@@ -73,14 +95,11 @@ export default async function DealsPage({
   const decided = wonDeals + lostDeals;
   const winRate = decided > 0 ? Math.round((wonDeals / decided) * 100) : null;
 
-  const rows = q
-    ? deals.filter((d) =>
-        [d.title, d.company?.name].filter(Boolean).some((v) => v!.toLowerCase().includes(q.toLowerCase())),
-      )
-    : deals;
+  // Search is now done server-side — `deals` is already filtered.
+  const rows = deals;
 
-  // Total deal value. Deals share the app's primary currency (INR) in practice;
-  // we sum the minor units and format as INR for the footer.
+  // Total deal value on the visible page. Deals share the app's primary
+  // currency (INR) in practice; we sum the minor units and format as INR.
   const totalMinor = rows.reduce((sum, d) => sum + d.amountMinor, 0);
 
   const nextTaskLabel = (d: (typeof rows)[number]): string | null => {
@@ -136,6 +155,13 @@ export default async function DealsPage({
         action={
           <div className="flex items-center gap-3">
             {toggle}
+            <a
+              href={`/api/export/deals${new URLSearchParams({ ...(q && { q }), ...(stage && { stage }) }).toString() ? `?${new URLSearchParams({ ...(q && { q }), ...(stage && { stage }) }).toString()}` : ""}`}
+              className="btn-secondary"
+              title="Download the filtered pipeline as Excel"
+            >
+              ⬇ Export Excel
+            </a>
             {editable && <Link href="/crm/deals/new" className="btn-primary">New Deal</Link>}
           </div>
         }
@@ -246,16 +272,25 @@ export default async function DealsPage({
             </tbody>
             <tfoot className="border-t border-border bg-surface-2">
               <tr>
-                <td className="td text-sm font-medium text-muted">{rows.length} count</td>
+                <td className="td text-sm font-medium text-muted">{rows.length} on this page</td>
                 <td className="td" />
                 <td className="td" />
-                <td className="td num text-right text-sm font-semibold text-fg">{formatMoney(totalMinor, "INR")} sum</td>
+                <td className="td num text-right text-sm font-semibold text-fg">{formatMoney(totalMinor, "INR")} page sum</td>
                 <td className="td" />
                 <td className="td" />
               </tr>
             </tfoot>
           </table>
         </div>
+      )}
+      {view === "list" && (
+        <Pager
+          total={totalList}
+          page={page}
+          pageSize={PAGE_SIZE}
+          basePath="/crm/deals"
+          params={{ view, q, stage }}
+        />
       )}
     </div>
   );

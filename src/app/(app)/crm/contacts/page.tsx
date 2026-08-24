@@ -3,28 +3,42 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEditCRM } from "@/lib/auth";
 import { PageHeader, EmptyState } from "@/components/ui";
+import { Pager } from "@/components/Pager";
 
 export const dynamic = "force-dynamic";
 
-export default async function ContactsPage({ searchParams }: { searchParams: { q?: string } }) {
+const PAGE_SIZE = 50;
+
+export default async function ContactsPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
   const editable = await canEditCRM(me);
 
   const q = (searchParams.q ?? "").trim();
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
-  const contacts = await prisma.contact.findMany({
-    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    include: { company: { select: { id: true, name: true } } },
-  });
+  const where: Record<string, unknown> = {};
+  if (q) {
+    where.OR = [
+      { firstName: { contains: q, mode: "insensitive" } },
+      { lastName: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { phone: { contains: q, mode: "insensitive" } },
+      { title: { contains: q, mode: "insensitive" } },
+      { company: { is: { name: { contains: q, mode: "insensitive" } } } },
+    ];
+  }
 
-  const rows = q
-    ? contacts.filter((c) =>
-        [`${c.firstName} ${c.lastName}`, c.email, c.phone, c.company?.name]
-          .filter(Boolean)
-          .some((v) => v!.toLowerCase().includes(q.toLowerCase())),
-      )
-    : contacts;
+  const [rows, total] = await Promise.all([
+    prisma.contact.findMany({
+      where,
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { company: { select: { id: true, name: true } } },
+    }),
+    prisma.contact.count({ where }),
+  ]);
 
   // Clicking a contact takes you to the company it's associated with; a contact
   // with no company falls back to its own record.
@@ -36,7 +50,18 @@ export default async function ContactsPage({ searchParams }: { searchParams: { q
       <PageHeader
         title="Contacts"
         subtitle="People at your companies. Opening a contact jumps to their company."
-        action={editable ? <Link href="/crm/contacts/new" className="btn-primary">New contact</Link> : null}
+        action={
+          <div className="flex items-center gap-3">
+            <a
+              href={`/api/export/contacts${q ? `?q=${encodeURIComponent(q)}` : ""}`}
+              className="btn-secondary"
+              title="Download the filtered contact book as Excel"
+            >
+              ⬇ Export Excel
+            </a>
+            {editable && <Link href="/crm/contacts/new" className="btn-primary">New contact</Link>}
+          </div>
+        }
       />
 
       <form className="card mb-4 flex flex-wrap items-end gap-3 p-4" method="get">
@@ -97,6 +122,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: { q
           </table>
         </div>
       )}
+      <Pager total={total} page={page} pageSize={PAGE_SIZE} basePath="/crm/contacts" params={{ q }} />
     </div>
   );
 }

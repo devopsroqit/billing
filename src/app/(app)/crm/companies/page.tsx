@@ -9,13 +9,16 @@ import {
   type RelationshipType,
 } from "@/lib/constants";
 import { PageHeader, StatusBadge, EmptyState } from "@/components/ui";
+import { Pager } from "@/components/Pager";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 export default async function CompaniesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; type?: string; category?: string };
+  searchParams: { q?: string; type?: string; category?: string; page?: string };
 }) {
   const me = await getSessionUser();
   if (!me) redirect("/login");
@@ -24,42 +27,59 @@ export default async function CompaniesPage({
   const q = (searchParams.q ?? "").trim();
   const type = searchParams.type ?? "";
   const category = (searchParams.category ?? "").trim();
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
-  const companies = await prisma.company.findMany({
-    where: type ? { relationshipType: type } : undefined,
-    orderBy: [{ active: "desc" }, { name: "asc" }],
-    include: { _count: { select: { contacts: true, deals: true } } },
-  });
+  // Server-side filter — search + relationship type + category. Category is a
+  // comma-separated string on the row, matched with a plain `contains`.
+  const where: Record<string, unknown> = {};
+  if (type) where.relationshipType = type;
+  if (category) where.categories = { contains: category, mode: "insensitive" };
+  if (q) {
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { domains: { contains: q, mode: "insensitive" } },
+      { primaryLocation: { contains: q, mode: "insensitive" } },
+    ];
+  }
 
-  const users = await prisma.user.findMany({ select: { id: true, name: true } });
+  const [rows, total, users, categoryRows] = await Promise.all([
+    prisma.company.findMany({
+      where,
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { _count: { select: { contacts: true, deals: true } } },
+    }),
+    prisma.company.count({ where }),
+    prisma.user.findMany({ select: { id: true, name: true } }),
+    // Category dropdown reads categories across ALL companies, not just the
+    // current filter — so switching filters doesn't hide categories.
+    prisma.company.findMany({ select: { categories: true } }),
+  ]);
   const userName = new Map(users.map((u) => [u.id, u.name]));
 
-  // The set of categories across all companies, for the filter dropdown.
   const allCategories = Array.from(
-    new Set(companies.flatMap((c) => (c.categories ?? "").split(",").map((t) => t.trim()).filter(Boolean))),
+    new Set(categoryRows.flatMap((c) => (c.categories ?? "").split(",").map((t) => t.trim()).filter(Boolean))),
   ).sort();
-
-  let rows = companies;
-  if (q) {
-    const needle = q.toLowerCase();
-    rows = rows.filter((c) =>
-      [c.name, c.email, c.domains, c.primaryLocation, c.categories]
-        .filter(Boolean)
-        .some((v) => v!.toLowerCase().includes(needle)),
-    );
-  }
-  if (category) {
-    rows = rows.filter((c) =>
-      (c.categories ?? "").split(",").map((t) => t.trim().toLowerCase()).includes(category.toLowerCase()),
-    );
-  }
 
   return (
     <div>
       <PageHeader
         title="Companies"
         subtitle="The organizations you sell to, partner with, and buy from."
-        action={editable ? <Link href="/crm/companies/new" className="btn-primary">New company</Link> : null}
+        action={
+          <div className="flex items-center gap-3">
+            <a
+              href={`/api/export/companies${new URLSearchParams({ ...(q && { q }), ...(type && { type }), ...(category && { category }) }).toString() ? `?${new URLSearchParams({ ...(q && { q }), ...(type && { type }), ...(category && { category }) }).toString()}` : ""}`}
+              className="btn-secondary"
+              title="Download the filtered company book as Excel"
+            >
+              ⬇ Export Excel
+            </a>
+            {editable && <Link href="/crm/companies/new" className="btn-primary">New company</Link>}
+          </div>
+        }
       />
 
       <form className="card mb-4 flex flex-wrap items-end gap-3 p-4" method="get">
@@ -146,6 +166,7 @@ export default async function CompaniesPage({
           </table>
         </div>
       )}
+      <Pager total={total} page={page} pageSize={PAGE_SIZE} basePath="/crm/companies" params={{ q, type, category }} />
     </div>
   );
 }
