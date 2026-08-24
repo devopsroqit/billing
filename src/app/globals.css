@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 /* Semantic color tokens (space-separated RGB, consumed via rgb(var(--x)/a)).
-   Neutral (zinc) grays for a clean, Frappe-style look — no blue tint. */
+   Two themes:
+   - Light: neutral zinc, close to the original Frappe look.
+   - Dark: the "sharp" palette — near-black canvas, hairline borders in a
+     desaturated warm neutral, a lonely brand accent (kept blue).
+   The dark values are tuned so a 1px border reads instead of a drop shadow. */
 :root {
   color-scheme: light;
   --bg: 250 250 250; /* zinc-50 — page background */
@@ -17,13 +21,13 @@
 
 .dark {
   color-scheme: dark;
-  --bg: 3 7 18; /* near-black slate */
-  --surface: 17 24 39; /* gray-900 */
-  --surface-2: 31 41 55; /* gray-800 */
-  --border: 42 52 68; /* subtle slate border */
-  --fg: 237 242 249; /* near slate-100 */
-  --muted: 148 163 184; /* slate-400 */
-  --faint: 100 116 139; /* slate-500 */
+  --bg: 23 23 23; /* #171717 — near-black canvas */
+  --surface: 28 28 28; /* #1c1c1c — cards */
+  --surface-2: 35 35 35; /* #232323 — raised, table headers */
+  --border: 46 46 46; /* #2e2e2e — hairline */
+  --fg: 237 237 237; /* #ededed */
+  --muted: 138 138 138; /* #8a8a8a */
+  --faint: 90 90 90; /* #5a5a5a */
 }
 
 body {
@@ -69,8 +73,17 @@ body {
   .btn-success {
     @apply btn bg-green-600 text-white hover:bg-green-700;
   }
+  /* Hairline card — 1px border, no drop shadow. In dark this reads as
+     engineered; in light it stays clean. */
   .card {
-    @apply rounded-lg border border-border bg-surface shadow-card;
+    @apply rounded-md border border-border bg-surface;
+  }
+  /* Numeric slot — KPI values, money in tables, deal card amounts.
+     Tabular monospace keeps digits column-aligned. */
+  .num {
+    font-family: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
   .input {
     @apply block w-full rounded-lg border-0 bg-surface px-3 py-2 text-sm text-fg ring-1 ring-inset ring-border placeholder:text-faint focus:ring-2 focus:ring-inset focus:ring-brand-600;

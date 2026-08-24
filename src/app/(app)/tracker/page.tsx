@@ -224,10 +224,10 @@ export default async function TrackerPage({
             <tfoot className="bg-surface-2">
               <tr className="font-semibold text-fg">
                 <td className="td" colSpan={6}>Total</td>
-                <td className="td text-right">{formatMoneyCompact(totals.inr, "INR")}</td>
-                <td className="td text-right">{formatMoneyCompact(totals.usd, "USD")}</td>
-                <td className="td text-right">{formatMoneyCompact(totals.eur, "EUR")}</td>
-                <td className="td text-right">{formatMoneyCompact(totals.paid, "INR")}</td>
+                <td className="td num text-right">{formatMoneyCompact(totals.inr, "INR")}</td>
+                <td className="td num text-right">{formatMoneyCompact(totals.usd, "USD")}</td>
+                <td className="td num text-right">{formatMoneyCompact(totals.eur, "EUR")}</td>
+                <td className="td num text-right">{formatMoneyCompact(totals.paid, "INR")}</td>
                 <td className="td" colSpan={editable ? 3 : 2}></td>
               </tr>
             </tfoot>

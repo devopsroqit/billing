@@ -109,10 +109,17 @@ export function AppChrome({ children }: { children: ReactNode }) {
 }
 
 function ToastStack({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
+  // Alpha-tinted grounds + a semantic-colored icon so each kind reads on both
+  // the light and the dark theme without a second style block.
   const tone: Record<ToastKind, string> = {
-    success: "border-emerald-500/30 bg-emerald-50 text-emerald-900",
-    error: "border-red-500/30 bg-red-50 text-red-900",
-    info: "border-brand-600/30 bg-surface text-fg",
+    success: "border-emerald-500/40 bg-emerald-500/10 text-fg",
+    error: "border-red-500/40 bg-red-500/10 text-fg",
+    info: "border-brand-500/40 bg-brand-500/10 text-fg",
+  };
+  const iconTone: Record<ToastKind, string> = {
+    success: "bg-emerald-500 text-white",
+    error: "bg-red-500 text-white",
+    info: "bg-brand-600 text-white",
   };
   const icon: Record<ToastKind, string> = { success: "✓", error: "!", info: "i" };
   return (
@@ -121,9 +128,9 @@ function ToastStack({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: nu
         <div
           key={t.id}
           role="status"
-          className={`toast-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border px-4 py-3 shadow-lg ${tone[t.kind]}`}
+          className={`toast-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-md border px-4 py-3 shadow-lg backdrop-blur-sm ${tone[t.kind]}`}
         >
-          <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/70 text-xs font-bold">
+          <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${iconTone[t.kind]}`}>
             {icon[t.kind]}
           </span>
           <p className="min-w-0 flex-1 text-sm">{t.message}</p>

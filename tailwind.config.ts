@@ -28,9 +28,19 @@ const config: Config = {
       fontFamily: {
         // Inter (loaded in layout.tsx) with a system fallback — Frappe's typeface.
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
+        // JetBrains Mono — used for KPI values, money, and any column of digits.
+        // Same family Supabase Studio uses; keeps numbers precisely aligned.
+        mono: ["var(--font-mono)", "ui-monospace", "SF Mono", "Menlo", "Consolas", "monospace"],
+      },
+      borderRadius: {
+        // Tighten the base "lg" radius from Tailwind's default 8px to 6px so
+        // every card, input, and button reads a touch sharper without any
+        // component edits.
+        lg: "0.375rem",
       },
       boxShadow: {
         sm: "0 1px 2px 0 rgb(24 24 27 / 0.05)",
+        // Legacy alias — still resolvable, but `.card` no longer applies it.
         card: "0 1px 2px 0 rgb(24 24 27 / 0.06)",
       },
     },

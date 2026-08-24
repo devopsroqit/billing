@@ -123,13 +123,13 @@ function Column({
   return (
     <div className="flex w-72 shrink-0 flex-col">
       <div className="mb-2 flex items-center justify-between px-1">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</span>
-        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-faint">{count}</span>
+        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted">{label}</span>
+        <span className="num rounded border border-border px-1.5 py-0.5 text-[10px] text-faint">{count}</span>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex min-h-[8rem] flex-1 flex-col gap-2 rounded-lg border p-2 transition-colors ${
-          isOver ? "border-brand-500 bg-brand-50" : "border-border bg-surface-2/40"
+        className={`flex min-h-[8rem] flex-1 flex-col gap-2 rounded-md border p-2 transition-colors ${
+          isOver ? "border-brand-500 bg-brand-500/10" : "border-border bg-surface-2/40"
         }`}
       >
         {children}
@@ -137,7 +137,10 @@ function Column({
           <p className="select-none px-1 py-8 text-center text-xs text-faint">{editable ? "Drop here" : "—"}</p>
         )}
       </div>
-      <div className="mt-2 px-1 text-xs font-medium text-muted">{sumLabel}</div>
+      <div className="num mt-2 flex items-center justify-between px-1 text-[11px] text-muted">
+        <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-faint">Sum</span>
+        <span>{sumLabel}</span>
+      </div>
     </div>
   );
 }
@@ -161,23 +164,23 @@ function Card({ deal, editable, dragging }: { deal: BoardDeal; editable: boolean
 function CardBody({ deal, overlay }: { deal: BoardDeal; overlay?: boolean }) {
   return (
     <div
-      className={`rounded-lg border border-border bg-surface p-3 shadow-sm ${
-        overlay ? "rotate-1 cursor-grabbing shadow-card" : ""
+      className={`rounded-md border border-border bg-surface p-3 transition-colors hover:border-fg/20 ${
+        overlay ? "rotate-1 cursor-grabbing shadow-lg" : ""
       }`}
     >
       <Link
         href={`/crm/deals/${deal.id}`}
         onClick={(e) => e.stopPropagation()}
-        className="text-sm font-medium text-fg hover:underline"
+        className="text-sm font-medium leading-snug text-fg hover:underline"
       >
         {deal.title}
       </Link>
-      {deal.company && <p className="mt-0.5 text-xs text-faint">{deal.company}</p>}
+      {deal.company && <p className="mt-0.5 font-mono text-[10.5px] text-muted">{deal.company}</p>}
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-fg">{deal.valueLabel || "—"}</span>
+        <span className="num text-[12px] font-semibold text-fg">{deal.valueLabel || "—"}</span>
         <span className="truncate text-xs text-muted">{deal.owner ?? "—"}</span>
       </div>
-      {deal.nextTaskLabel && <p className="mt-1 truncate text-xs text-faint">⏰ {deal.nextTaskLabel}</p>}
+      {deal.nextTaskLabel && <p className="mt-1 truncate text-[11px] text-faint">⏰ {deal.nextTaskLabel}</p>}
       {(!deal.active || deal.projectCompleted) && (
         <div className="mt-1 flex gap-2 text-[11px]">
           {!deal.active && <span className="text-faint">Inactive</span>}
