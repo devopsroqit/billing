@@ -7,6 +7,7 @@ import { ROLE_LABELS, type Role } from "@/lib/constants";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Icon } from "@/components/Icon";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { openCommandPalette } from "@/components/CommandPalette";
 
 type NavItem = { href: string; label: string; icon: string; adminOnly?: boolean; match?: string[] };
 const SECTIONS: { heading?: string; items: NavItem[] }[] = [
@@ -77,8 +78,23 @@ export function Sidebar({ user, unreadNotifications = 0 }: { user: { name: strin
     items: s.items.filter((i) => !i.adminOnly || user.role === "ADMIN"),
   })).filter((s) => s.items.length > 0);
 
+  const searchButton = (
+    <button
+      type="button"
+      onClick={openCommandPalette}
+      title="Search deals, companies, contacts, devices (⌘K)"
+      aria-label="Open global search"
+      className="mb-2 flex w-full items-center gap-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-left text-sm text-muted transition-colors hover:border-fg/20 hover:text-fg"
+    >
+      <Icon name="search" className="h-[16px] w-[16px] shrink-0" />
+      <span className="sidebar-label flex-1 truncate">Search…</span>
+      <span className="sidebar-label rounded border border-border px-1.5 py-[1px] font-mono text-[10px] text-faint">⌘K</span>
+    </button>
+  );
+
   const navList = (
     <nav className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-3">
+      {searchButton}
       {sections.map((section, i) => (
         <div key={i} className="space-y-1">
           {section.heading && (
