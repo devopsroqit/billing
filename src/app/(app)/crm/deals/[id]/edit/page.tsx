@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEditCRM } from "@/lib/auth";
+import { getSessionUser, canEditCRM, dealAccessWhere } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import { DealForm } from "@/components/crm/DealForm";
 
@@ -13,7 +13,9 @@ export default async function EditDealPage({ params }: { params: { id: string } 
   const me = await getSessionUser();
   if (!me || !(await canEditCRM(me))) redirect(`/crm/deals/${params.id}`);
 
-  const deal = await prisma.deal.findUnique({ where: { id: params.id } });
+  // Same access gate as the read page — someone who can't see the deal can't
+  // guess the edit URL either.
+  const deal = await prisma.deal.findFirst({ where: { AND: [dealAccessWhere(me), { id: params.id }] } });
   if (!deal) notFound();
 
   const [companies, users] = await Promise.all([

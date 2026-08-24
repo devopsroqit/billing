@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, dealAccessWhere } from "@/lib/auth";
 import { DEAL_STAGE_LABELS, type DealStage } from "@/lib/constants";
 import { minorToMajor } from "@/lib/money";
 
@@ -20,14 +20,17 @@ export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
   const stage = (req.nextUrl.searchParams.get("stage") ?? "").trim();
 
-  const where: Record<string, unknown> = {};
-  if (stage) where.stage = stage;
+  // Filter first, then apply the per-user access filter — the export must
+  // never contain a row the user can't see in the app.
+  const filters: Record<string, unknown> = {};
+  if (stage) filters.stage = stage;
   if (q) {
-    where.OR = [
+    filters.OR = [
       { title: { contains: q, mode: "insensitive" } },
       { company: { is: { name: { contains: q, mode: "insensitive" } } } },
     ];
   }
+  const where = { AND: [dealAccessWhere(user), filters] };
 
   const [deals, users] = await Promise.all([
     prisma.deal.findMany({

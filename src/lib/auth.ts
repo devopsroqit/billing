@@ -112,3 +112,31 @@ export function assertCanManageUsers(role: Role) {
     throw new Error("Only admins can manage team members.");
   }
 }
+
+/**
+ * Per-deal record-level access filter.
+ *
+ * Non-admins only see deals they're on: owner, creator, or an explicit
+ * Contributor. Admins bypass — an empty object means "no filter" and works
+ * cleanly when merged into a WHERE clause.
+ *
+ * Callers merge like:
+ *   const where: Prisma.DealWhereInput = { AND: [dealAccessWhere(me), rest] };
+ * or, when the query has no other WHERE:
+ *   const where = dealAccessWhere(me);
+ *
+ * `createdById` is included as a safety net so a deal never becomes invisible
+ * to the person who created it — if an admin later reassigns ownership without
+ * adding them as a contributor, they still see it. Contributors + Owner remain
+ * the primary access grants.
+ */
+export function dealAccessWhere(user: { id: string; role: Role }): Record<string, unknown> {
+  if (user.role === "ADMIN") return {};
+  return {
+    OR: [
+      { ownerId: user.id },
+      { createdById: user.id },
+      { contributors: { some: { userId: user.id } } },
+    ],
+  };
+}
