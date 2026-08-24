@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { CommandPalette } from "@/components/CommandPalette";
 
 // In-app toast + confirm-modal chrome. Mounted once at the (app) layout so any
 // client component under it can call useToast() / useConfirm() instead of the
@@ -95,6 +96,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
     <ToastCtx.Provider value={toast}>
       <ConfirmCtx.Provider value={confirm}>
         {children}
+        <CommandPalette />
         <ToastStack toasts={toasts} onDismiss={dismiss} />
         {confirmState && (
           <ConfirmModal
