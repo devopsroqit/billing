@@ -95,6 +95,7 @@ export function TaskPanel({
                   className="mt-1 h-4 w-4 shrink-0 rounded border-border"
                   checked={t.status === "DONE"}
                   disabled={!editable}
+                  aria-label={t.status === "DONE" ? `Mark task "${t.title}" not done` : `Mark task "${t.title}" done`}
                   onChange={() => editable && toggleTaskDone(t.id).then(refresh)}
                 />
                 <div className="min-w-0 flex-1">

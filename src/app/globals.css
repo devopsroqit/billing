@@ -36,6 +36,52 @@ body {
   @apply antialiased;
 }
 
+/* A visible focus ring on every keyboard-focused interactive element. Uses
+   :focus-visible so mouse clicks don't leave a lingering ring, and rings in
+   the brand accent for continuity with the rest of the UI. */
+@layer base {
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid rgb(37 99 235);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    /* The .input class already draws a brand-tinted ring on focus; here we
+       just make sure that ring stays visible for keyboard focus (it uses
+       plain :focus in Tailwind's utility, which covers mouse+keyboard). */
+    outline: none;
+  }
+}
+
+/* Skip-to-content link — visible only when tab-focused, then sits at the top
+   of the viewport. Lets keyboard users bypass the sidebar. */
+.skip-to-content {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1000;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: rgb(37 99 235);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  transform: translateY(-200%);
+  transition: transform 120ms ease;
+}
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
+  transform: translateY(0);
+  outline: none;
+}
+
 @layer base {
   /* Smooth, tasteful theme + interaction transitions (~200ms). */
   body,
@@ -157,7 +203,9 @@ body {
   background: rgb(var(--brand-selection, 37 99 235) / 0.2);
 }
 
-/* Toast + modal motion. Small, reused ~200ms easing. */
+/* Toast + modal motion. Small, reused ~200ms easing. Reduced-motion viewers
+   get instant appear/dismiss with no transform, so nothing on the page moves
+   on its own. */
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -170,9 +218,21 @@ body {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.toast-in { animation: toast-in 0.18s ease-out both; }
-.modal-in { animation: modal-in 0.18s ease-out both; }
-.modal-backdrop { animation: backdrop-in 0.15s ease-out both; }
+@media (prefers-reduced-motion: no-preference) {
+  .toast-in { animation: toast-in 0.18s ease-out both; }
+  .modal-in { animation: modal-in 0.18s ease-out both; }
+  .modal-backdrop { animation: backdrop-in 0.15s ease-out both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Kill every transition + animation the app defines. Elements still change
+     state, but they do so instantly. */
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 @media print {
   .no-print {
