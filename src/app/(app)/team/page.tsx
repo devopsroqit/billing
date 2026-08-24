@@ -27,19 +27,19 @@ export default async function TeamPage() {
 
       {/* Email deliverability status. Admin-only page, so it's fine to surface
           the raw config state — the message tells whoever is here what to do. */}
-      <div className={`mb-4 flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
+      <div className={`mb-4 flex items-start gap-3 rounded-md border px-4 py-3 text-sm text-fg ${
         emailOn
-          ? "border-emerald-500/30 bg-emerald-50 text-emerald-900"
-          : "border-amber-500/30 bg-amber-50 text-amber-900"
+          ? "border-emerald-500/40 bg-emerald-500/10"
+          : "border-amber-500/40 bg-amber-500/10"
       }`}>
-        <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${emailOn ? "bg-emerald-600 text-white" : "bg-amber-600 text-white"}`}>
+        <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${emailOn ? "bg-emerald-500" : "bg-amber-500"}`}>
           {emailOn ? "✓" : "!"}
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-medium">
             {emailOn ? "Email delivery is active." : "Email delivery is not configured."}
           </p>
-          <p className="mt-0.5 text-xs opacity-90">
+          <p className="mt-0.5 text-xs text-muted">
             {emailOn
               ? "Welcome emails and notifications are being sent via Resend."
               : "Welcome emails and notifications are being logged but not sent. Set RESEND_API_KEY and EMAIL_FROM in the environment to turn on delivery."}
@@ -78,7 +78,7 @@ export default async function TeamPage() {
                   {u.role === "ADMIN" ? (
                     <span className="text-xs text-muted">Full (admin)</span>
                   ) : u.canEditCrm ? (
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Can edit</span>
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">Can edit</span>
                   ) : (
                     <span className="text-xs text-faint">View only</span>
                   )}

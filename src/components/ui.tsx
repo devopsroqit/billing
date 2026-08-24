@@ -7,10 +7,11 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   return <span className={`badge ${cls}`}>{label ?? status.replace(/_/g, " ").toLowerCase()}</span>;
 }
 
-/** Render a minor-unit amount, or a muted dash when zero. */
+/** Render a minor-unit amount, or a muted dash when zero. Always in the
+ *  tabular-monospace numeric slot so columns of money line up. */
 export function Money({ minor, currency }: { minor: number; currency: Currency }) {
   if (!minor) return <span className="text-faint">—</span>;
-  return <span>{formatMoneyCompact(minor, currency)}</span>;
+  return <span className="num">{formatMoneyCompact(minor, currency)}</span>;
 }
 
 export { CURRENCY_SYMBOLS };
@@ -81,8 +82,8 @@ export function Stat({
   }[tone];
   const inner = (
     <div className="card p-5 h-full">
-      <p className="text-sm text-muted">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${toneCls}`}>{value}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-faint">{label}</p>
+      <p className={`num mt-2 text-2xl font-medium leading-tight ${toneCls}`}>{value}</p>
       {hint && <p className="mt-1 text-xs text-faint">{hint}</p>}
     </div>
   );

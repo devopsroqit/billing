@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Icon } from "@/components/Icon";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type NavItem = { href: string; label: string; icon: string; adminOnly?: boolean; match?: string[] };
 const SECTIONS: { heading?: string; items: NavItem[] }[] = [
@@ -132,6 +133,7 @@ export function Sidebar({ user, unreadNotifications = 0 }: { user: { name: strin
         <p className="truncate text-xs text-faint">{user.email}</p>
         <p className="mt-1 text-[11px] font-medium text-brand-600">{ROLE_LABELS[user.role]}</p>
       </div>
+      <ThemeToggle />
       <form action="/api/auth/logout" method="post">
         <button className="sidebar-compact btn-secondary mt-1 w-full text-sm" title="Sign out">
           <Icon name="log-out" className="h-[18px] w-[18px] shrink-0" />

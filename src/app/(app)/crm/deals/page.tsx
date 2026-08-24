@@ -230,7 +230,7 @@ export default async function DealsPage({
                     </td>
                     <td className="td"><StatusBadge status={d.stage} label={DEAL_STAGE_LABELS[d.stage as DealStage] ?? d.stage} /></td>
                     <td className="td text-muted">{d.ownerId ? userName.get(d.ownerId) ?? "—" : "—"}</td>
-                    <td className="td text-right">{d.amountMinor ? formatMoney(d.amountMinor, d.currency as Currency) : "—"}</td>
+                    <td className="td num text-right">{d.amountMinor ? formatMoney(d.amountMinor, d.currency as Currency) : "—"}</td>
                     <td className="td text-muted">
                       {task ? (
                         <>
@@ -249,7 +249,7 @@ export default async function DealsPage({
                 <td className="td text-sm font-medium text-muted">{rows.length} count</td>
                 <td className="td" />
                 <td className="td" />
-                <td className="td text-right text-sm font-semibold text-fg">{formatMoney(totalMinor, "INR")} sum</td>
+                <td className="td num text-right text-sm font-semibold text-fg">{formatMoney(totalMinor, "INR")} sum</td>
                 <td className="td" />
                 <td className="td" />
               </tr>
