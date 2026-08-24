@@ -94,3 +94,91 @@ Use whichever suits each row.
 When I push new features to the branch, Vercel redeploys automatically. If a
 change touches the database structure, run `npm run db:push` locally (pointed at
 Neon) once — I'll always tell you when that's needed.
+
+---
+
+## Restoring from a bad change
+
+Prod is on Neon with **30-day point-in-time restore** — any moment in the last
+30 days can be reconstructed. This is the runbook for the day you (or I) need
+to actually use it. Read it before you need it; the middle of an incident is a
+bad time to learn a new tool.
+
+### When to use it
+
+Use PITR when data is *wrong* and you can name the timestamp when it was right:
+
+- **"Someone deleted a company / contact / deal by mistake."**
+- **"A bad import ran and doubled a bunch of payments."**
+- **"An admin ran the seed script against prod."** (Yes, this happens.)
+- **"A migration wiped a column and I need the old values back."**
+
+Do **not** use it for a normal application bug (the DB is fine, the code is
+wrong — fix the code). Do **not** use it to try to "roll back a deploy" — Vercel
+handles that; PITR is a data tool.
+
+### How it works, in one paragraph
+
+Neon lets you spin up a **branch** of the DB "as of" any timestamp in the
+retention window. The branch is a fully queryable copy at that moment, on its
+own connection string. You point a scratch environment at the branch to
+inspect it. Once you're sure it holds the data you want, you either **copy
+specific rows back** to the main branch, or **swap `DATABASE_URL` on Vercel**
+to promote the branch to prod. The main branch is untouched throughout — nothing
+is destroyed until you consciously promote or delete.
+
+### The three-step recovery
+
+1. **Create a branch at the target time.**
+   - Open the Neon console → the project → **Branches** → **Create branch**.
+   - Source: `main`. "Time travel": pick a timestamp **just before** the bad
+     change happened. If you don't know when it happened, start with "1 hour
+     ago" and step back.
+   - Name it `restore-YYYY-MM-DD-HHmm` so you don't confuse it later.
+   - Copy the new branch's connection string.
+
+2. **Inspect on a scratch instance.**
+   - Fastest: run the app locally against the branch:
+     ```
+     DATABASE_URL="<restore-branch-string>" AUTH_SECRET="anything-long" npx next start -p 3010
+     ```
+     Then open `http://localhost:3010` and browse `/crm/deals`, `/crm/companies`,
+     `/tracker` — confirm the lost data is there.
+   - Or open Neon's SQL editor on the branch and run a targeted query
+     (`select * from "Company" where name = 'GreenFleet Mobility'`) — quicker
+     for a single record.
+
+3. **Recover.** Two options, pick based on scale:
+   - **Small (a few rows):** connect to the restore branch with your favourite
+     SQL client, `SELECT` the rows, then connect to prod (the main branch) and
+     `INSERT` them back. Best for "we lost one company" — surgical.
+   - **Large (the whole DB is wrong):** in Vercel → **Settings → Environment
+     Variables**, change `DATABASE_URL` from the main branch's string to the
+     restore branch's string, redeploy. The app is now backed by the restored
+     data. When you're sure it's the right state, in Neon → set the restore
+     branch as the new primary (Neon calls this "promote"), then swap Vercel's
+     `DATABASE_URL` back to the main branch string. Best for "a bad migration
+     ran overnight" — nuclear.
+
+Delete the restore branch when done (Neon → Branches → ⋯ → Delete) so it stops
+counting toward storage.
+
+### Who to call
+
+- **Owner:** Shiv (has Neon + Vercel admin).
+- **On the SQL side:** ask me to rehearse the exact statements before running
+  anything against prod. Please don't hand-type `DELETE FROM …` on the main
+  branch under pressure — 20 min of rehearsal on the restore branch has saved
+  a lot of production databases.
+
+### Verify it works — occasionally
+
+Once a quarter, run the drill:
+
+1. Create a branch from ~1 hour ago.
+2. Point local `next start` at it.
+3. Confirm the data matches what you had an hour ago.
+4. Delete the branch.
+
+It takes 10 minutes and is the only way to know backups actually work. A
+backup you've never restored isn't a backup — it's a wish.
