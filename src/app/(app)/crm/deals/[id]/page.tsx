@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEditCRM } from "@/lib/auth";
+import { getSessionUser, canEditCRM, dealAccessWhere } from "@/lib/auth";
 import { DocumentForm, DeleteDocButton } from "@/components/DocumentForm";
 import { DealRecordView } from "@/components/crm/DealRecordView";
 import { toTaskItem } from "@/lib/tasks";
@@ -17,8 +17,11 @@ export default async function DealDetailPage({ params }: { params: { id: string 
   if (!me) redirect("/login");
   const editable = await canEditCRM(me);
 
-  const deal = await prisma.deal.findUnique({
-    where: { id: params.id },
+  // findFirst + AND[access, id] instead of findUnique — a non-admin without
+  // access to this deal gets the same 404 as a truly missing record, so URLs
+  // don't leak the existence of records they can't see.
+  const deal = await prisma.deal.findFirst({
+    where: { AND: [dealAccessWhere(me), { id: params.id }] },
     include: {
       company: { select: { id: true, name: true } },
       activities: {

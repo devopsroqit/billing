@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, dealAccessWhere } from "@/lib/auth";
 import { DEAL_STAGE_LABELS, DEVICE_STATUS_LABELS, type DealStage, type DeviceStatus } from "@/lib/constants";
 
 // GET /api/search?q=<term>
@@ -35,7 +35,9 @@ export async function GET(req: Request) {
 
   const [deals, companies, contacts, devices] = await Promise.all([
     prisma.deal.findMany({
-      where: { title: contains },
+      // Non-admins only see deals they're on. Applies here too — search must
+      // never surface a deal the user can't open.
+      where: { AND: [dealAccessWhere(me), { title: contains }] },
       orderBy: { updatedAt: "desc" },
       take: PER_KIND,
       include: { company: { select: { name: true } } },

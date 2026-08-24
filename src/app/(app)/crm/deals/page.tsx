@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
-import { getSessionUser, canEditCRM } from "@/lib/auth";
+import { getSessionUser, canEditCRM, dealAccessWhere } from "@/lib/auth";
 import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import {
   DEAL_STAGES,
@@ -38,17 +38,23 @@ export default async function DealsPage({
   const stage = searchParams.stage ?? "";
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
+  // Record-level access — non-admins only see deals they're on (owner /
+  // creator / contributor). Admins bypass. Composed via AND so the search
+  // and stage filters still apply on top.
+  const access = dealAccessWhere(me);
+
   // Server-side search matches title or company name — mirrors what the board
   // and list both need. The stage filter only applies to the list view (the
   // board renders every stage as a column, so stage would filter columns out).
-  const whereBase: Record<string, unknown> = {};
+  const filters: Record<string, unknown> = {};
   if (q) {
-    whereBase.OR = [
+    filters.OR = [
       { title: { contains: q, mode: "insensitive" } },
       { company: { is: { name: { contains: q, mode: "insensitive" } } } },
     ];
   }
-  const whereList = { ...whereBase, ...(stage ? { stage } : {}) };
+  const whereBase: Record<string, unknown> = { AND: [access, filters] };
+  const whereList: Record<string, unknown> = { AND: [access, { ...filters, ...(stage ? { stage } : {}) }] };
 
   // Board fetches the whole (matching) pipeline up to a hard safety cap; list
   // paginates. `totalList` is used by the pager on the list view.
@@ -75,12 +81,27 @@ export default async function DealsPage({
   const users = await prisma.user.findMany({ select: { id: true, name: true } });
   const userName = new Map(users.map((u) => [u.id, u.name]));
 
-  // KPIs reflect the WHOLE pipeline, independent of the search/stage filter, so
-  // the headline numbers stay stable as you filter the board/list below.
+  // KPIs reflect the whole *visible* pipeline — independent of the search/
+  // stage filter, but still constrained to deals the user can see. Otherwise
+  // an editor would see "Open pipeline ₹1.4 Cr" with only 3 cards below.
   const [kpiDeals, overdueTaskCount, paymentAgg] = await Promise.all([
-    prisma.deal.findMany({ select: { stage: true, amountMinor: true, arrMinor: true, lossReason: true, active: true } }),
-    prisma.task.count({ where: { dealId: { not: null }, status: { notIn: ["DONE", "CANCELLED"] }, dueAt: { lt: new Date() } } }),
-    prisma.dealPayment.aggregate({ _sum: { amountMinor: true }, _count: true }),
+    prisma.deal.findMany({
+      where: access,
+      select: { stage: true, amountMinor: true, arrMinor: true, lossReason: true, active: true },
+    }),
+    prisma.task.count({
+      where: {
+        dealId: { not: null },
+        status: { notIn: ["DONE", "CANCELLED"] },
+        dueAt: { lt: new Date() },
+        deal: { is: access },
+      },
+    }),
+    prisma.dealPayment.aggregate({
+      where: { deal: { is: access } },
+      _sum: { amountMinor: true },
+      _count: true,
+    }),
   ]);
   const cashReceivedMinor = paymentAgg._sum.amountMinor ?? 0;
   const paymentCount = paymentAgg._count;

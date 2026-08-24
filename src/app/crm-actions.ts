@@ -355,7 +355,17 @@ export async function saveDeal(formData: FormData) {
     if (data.companyId) revalidatePath(`/crm/companies/${data.companyId}`);
     redirect(`/crm/deals/${p.id}`);
   }
-  const created = await prisma.deal.create({ data: { ...data, createdById: user.id } });
+  const created = await prisma.deal.create({
+    data: {
+      ...data,
+      createdById: user.id,
+      // Auto-add the creator as a contributor. Under the access model, being
+      // owner OR creator OR a contributor grants access — this makes the
+      // grant explicit and independent of the owner field, so an admin
+      // reassigning ownership later doesn't accidentally lock the creator out.
+      contributors: { create: { userId: user.id } },
+    },
+  });
   await audit(user.id, "CREATE", "Deal", created.id, data.title);
   await logActivity({
     actorId: user.id, action: "CREATED", entityType: "DEAL", entityId: created.id,
