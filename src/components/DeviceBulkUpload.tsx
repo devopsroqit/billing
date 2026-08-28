@@ -52,6 +52,11 @@ export function DeviceBulkUpload() {
             </li>
             <li>2. Save it as <code className="rounded bg-surface-2 px-1">.xlsx</code>, then choose it below and import.</li>
           </ol>
+          <p className="mb-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
+            Device IDs are assigned automatically (<code className="font-mono text-fg">ROQIT_NNN</code>).
+            If your file has a Device ID column, its values are ignored. Rows are de-duplicated by
+            <span className="whitespace-nowrap"> Serial No / IMEI</span>, so re-importing the same file is safe.
+          </p>
 
           <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
             <div className="min-w-[16rem] flex-1">
