@@ -12,6 +12,7 @@ import {
   hashPassword,
 } from "@/lib/auth";
 import { majorToMinor } from "@/lib/money";
+import { getNextDeviceId } from "@/lib/deviceId";
 import { generateEntriesForPeriod, duplicatePreviousMonthEntries } from "@/lib/entries";
 import { sendWelcomeEmail } from "@/lib/email";
 import { logActivity } from "@/lib/activity";
@@ -541,11 +542,15 @@ export async function deletePurchase(id: string) {
 }
 
 // --- Devices ---------------------------------------------------------------
+// Device IDs (`assetTag`) are ALWAYS system-assigned via `getNextDeviceId`
+// on create and never editable afterwards. The schema still accepts the
+// field for form-data parity but the value is dropped on write — see
+// `saveDevice` and `bulkUploadDevices` below.
 const deviceSchema = z.object({
   id: z.string().optional(),
   purchaseId: z.string().optional(),
   supplierId: z.string().optional(),
-  assetTag: z.string().optional(), // "Device ID"
+  assetTag: z.string().optional(), // ignored — auto-assigned on create
   deviceName: z.string().optional(),
   modelNo: z.string().optional(),
   serialImei: z.string().optional(),
@@ -570,11 +575,12 @@ export async function saveDevice(formData: FormData): Promise<{ ok?: true; error
   const p = deviceSchema.parse(Object.fromEntries(formData));
   const deviceName = p.deviceName?.trim() || null;
   const serialImei = p.serialImei?.trim() || null;
+  // NB: `assetTag` from the form is DROPPED. On create it's assigned by the
+  // counter below; on edit the existing value is preserved as-is.
   const data = {
     purchaseId: p.purchaseId || null,
     supplierId: p.supplierId || null,
     category: "Device",
-    assetTag: p.assetTag?.trim() || null,
     deviceName,
     modelNo: p.modelNo?.trim() || null,
     serialImei,
@@ -598,15 +604,27 @@ export async function saveDevice(formData: FormData): Promise<{ ok?: true; error
   };
   try {
     if (p.id) {
+      // Edit path — never touch assetTag; the existing value stays.
       await prisma.device.update({ where: { id: p.id }, data });
-      await audit(user.id, "UPDATE", "Device", p.id, data.assetTag ?? data.deviceName ?? data.model ?? "device");
+      await audit(user.id, "UPDATE", "Device", p.id, data.deviceName ?? data.model ?? "device");
     } else {
-      const c = await prisma.device.create({ data: { ...data, createdById: user.id } });
-      await audit(user.id, "CREATE", "Device", c.id, data.assetTag ?? data.deviceName ?? data.model ?? "device");
+      // Create path — atomically assign the next Device ID and insert the
+      // row. The transaction guarantees no two concurrent creates ever get
+      // the same number, even under contention.
+      const c = await prisma.$transaction(async (tx) => {
+        const assetTag = await getNextDeviceId(tx);
+        return tx.device.create({
+          data: { ...data, assetTag, createdById: user.id },
+        });
+      });
+      await audit(user.id, "CREATE", "Device", c.id, c.assetTag ?? data.deviceName ?? data.model ?? "device");
     }
   } catch (e) {
     if ((e as { code?: string }).code === "P2002") {
-      return { error: "A device with this identifier already exists." };
+      // With the counter this should be unreachable; kept as a defence in
+      // case the counter row is ever out of sync with the max assetTag on
+      // disk (e.g. a raw SQL insert bypassed the app).
+      return { error: "A device with this identifier already exists. Try again — the counter will pick the next free number." };
     }
     throw e;
   }
@@ -834,9 +852,20 @@ export async function bulkUploadDevices(formData: FormData): Promise<BulkImportR
     const suppliers = await prisma.supplier.findMany({ select: { id: true, name: true } });
     const supplierByName = new Map(suppliers.map((s) => [s.name.trim().toLowerCase(), s.id]));
 
-    // Existing asset tags — used to skip rows already imported (safe re-upload).
-    const existing = await prisma.device.findMany({ where: { assetTag: { not: null } }, select: { assetTag: true } });
-    const seenTags = new Set(existing.map((d) => (d.assetTag || "").trim().toLowerCase()).filter(Boolean));
+    // Existing serial/IMEI values — the *physical* identity of the device.
+    // Rows whose serialImei matches a device already in the DB are treated as
+    // re-imports and skipped, same idea as before but keyed on the physical
+    // serial instead of the human-entered Device ID (which is now
+    // system-assigned and always fresh).
+    const existing = await prisma.device.findMany({
+      where: { OR: [{ serialImei: { not: null } }, { imei: { not: null } }] },
+      select: { serialImei: true, imei: true },
+    });
+    const seenSerials = new Set<string>();
+    for (const d of existing) {
+      if (d.serialImei) seenSerials.add(d.serialImei.trim().toLowerCase());
+      if (d.imei) seenSerials.add(d.imei.trim().toLowerCase());
+    }
 
     const cellText = (row: ExcelJS.Row, key: string) => {
       const col = colMap[key];
@@ -856,8 +885,10 @@ export async function bulkUploadDevices(formData: FormData): Promise<BulkImportR
       // Skip fully-empty rows.
       if (!deviceName && !deviceId && !serialImei && !modelNo) continue;
 
-      const tagKey = deviceId.toLowerCase();
-      if (deviceId && seenTags.has(tagKey)) {
+      // Dedup by serial/IMEI now — the Device ID column in the sheet is
+      // ignored, so it can't be used to identify a row anymore.
+      const serialKey = serialImei.toLowerCase();
+      if (serialKey && seenSerials.has(serialKey)) {
         skipped++;
         continue;
       }
@@ -881,12 +912,17 @@ export async function bulkUploadDevices(formData: FormData): Promise<BulkImportR
 
         const supplierId = vendor ? supplierByName.get(vendor.toLowerCase()) ?? null : null;
 
-        await prisma.device.create({
-          data: {
-            category: "Device",
-            assetTag: deviceId || null,
-            deviceName: deviceName || null,
-            modelNo: modelNo || null,
+        // Auto-assign the Device ID from the counter — the Excel value is
+        // deliberately dropped. Wrapped in a transaction so counter reads +
+        // device inserts stay atomic even under parallel imports.
+        await prisma.$transaction(async (tx) => {
+          const assetTag = await getNextDeviceId(tx);
+          return tx.device.create({
+            data: {
+              category: "Device",
+              assetTag,
+              deviceName: deviceName || null,
+              modelNo: modelNo || null,
             // Their "Serial No / IMEI" values repeat across rows, so this is not
             // the unique serialNo field — it's stored as-is here (and mirrored to
             // imei for search) to avoid false uniqueness clashes.
@@ -910,8 +946,9 @@ export async function bulkUploadDevices(formData: FormData): Promise<BulkImportR
             notes: remarks || null,
             createdById: user.id,
           },
+          });
         });
-        if (deviceId) seenTags.add(tagKey);
+        if (serialKey) seenSerials.add(serialKey);
         created++;
       } catch (e) {
         errors.push({ row: r, message: e instanceof Error ? e.message : "Failed to import row." });

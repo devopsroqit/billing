@@ -298,6 +298,15 @@ model Device {
   @@index([companyId])
 }
 
+// Monotonic counter that hands out the next unused Device ID sequence
+// number. A single row (id = 1) whose `nextSeq` only ever increments — even
+// deleting a device does NOT free up its number for reuse. Read + increment
+// inside a prisma.$transaction so concurrent creates never collide.
+model DeviceIdCounter {
+  id      Int @id @default(1)
+  nextSeq Int @default(1)
+}
+
 // A movement/assignment event in a device's history.
 model Deployment {
   id          String    @id @default(cuid())

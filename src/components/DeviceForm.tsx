@@ -78,7 +78,21 @@ export function DeviceForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label">Device ID</label>
-          <input className="input" name="assetTag" defaultValue={v.assetTag ?? ""} placeholder="e.g. ROQIT-GPS-001" />
+          {v.id ? (
+            // Edit: show the existing ID, read-only. Never editable — once
+            // assigned, a Device ID belongs to that device forever.
+            <div className="input flex items-center bg-surface-2 text-muted">
+              <span className="num text-fg">{v.assetTag ?? "—"}</span>
+              <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-faint">system-assigned</span>
+            </div>
+          ) : (
+            // Create: no input at all. The next available number is assigned
+            // by the counter on save.
+            <div className="input flex items-center bg-surface-2 text-muted">
+              <span className="text-sm">Assigned automatically on save</span>
+              <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-faint">ROQIT_NNN</span>
+            </div>
+          )}
         </div>
         <div>
           <label className="label">Purchase date</label>
