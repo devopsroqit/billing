@@ -2,14 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, canEditCRM } from "@/lib/auth";
-import { toggleCompanyActive } from "@/app/crm-actions";
 import {
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_LABELS,
-  type RelationshipType,
 } from "@/lib/constants";
-import { PageHeader, StatusBadge, EmptyState } from "@/components/ui";
+import { PageHeader, EmptyState } from "@/components/ui";
 import { Pager } from "@/components/Pager";
+import { CompaniesTable } from "@/components/crm/CompaniesTable";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +56,16 @@ export default async function CompaniesPage({
     // current filter — so switching filters doesn't hide categories.
     prisma.company.findMany({ select: { categories: true } }),
   ]);
-  const userName = new Map(users.map((u) => [u.id, u.name]));
+  const tableRows = rows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    primaryLocation: c.primaryLocation,
+    relationshipType: c.relationshipType,
+    ownerId: c.ownerId,
+    contactsCount: c._count.contacts,
+    dealsCount: c._count.deals,
+    active: c.active,
+  }));
 
   const allCategories = Array.from(
     new Set(categoryRows.flatMap((c) => (c.categories ?? "").split(",").map((t) => t.trim()).filter(Boolean))),
@@ -92,7 +100,7 @@ export default async function CompaniesPage({
           <select className="input" name="type" defaultValue={type}>
             <option value="">All types</option>
             {RELATIONSHIP_TYPES.map((t) => (
-              <option key={t} value={t}>{RELATIONSHIP_TYPE_LABELS[t as RelationshipType]}</option>
+              <option key={t} value={t}>{RELATIONSHIP_TYPE_LABELS[t as keyof typeof RELATIONSHIP_TYPE_LABELS]}</option>
             ))}
           </select>
         </div>
@@ -123,48 +131,7 @@ export default async function CompaniesPage({
           }
         />
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="min-w-full divide-y divide-border">
-            <thead className="bg-surface-2">
-              <tr>
-                <th className="th">Name</th>
-                <th className="th">Relationship</th>
-                <th className="th">Owner</th>
-                <th className="th text-right">Contacts</th>
-                <th className="th text-right">Deals</th>
-                <th className="th">Status</th>
-                <th className="th text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((c) => (
-                <tr key={c.id} className="hover:bg-surface-2">
-                  <td className="td font-medium text-fg">
-                    <Link href={`/crm/companies/${c.id}`} className="hover:underline">{c.name}</Link>
-                    {c.primaryLocation && <span className="block text-xs text-faint">{c.primaryLocation}</span>}
-                  </td>
-                  <td className="td"><StatusBadge status={c.relationshipType} label={RELATIONSHIP_TYPE_LABELS[c.relationshipType as RelationshipType] ?? c.relationshipType} /></td>
-                  <td className="td text-muted">{c.ownerId ? userName.get(c.ownerId) ?? "—" : "—"}</td>
-                  <td className="td text-right">{c._count.contacts}</td>
-                  <td className="td text-right">{c._count.deals}</td>
-                  <td className="td"><StatusBadge status={c.active ? "ACTIVE" : "INACTIVE"} label={c.active ? "Active" : "Inactive"} /></td>
-                  <td className="td">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link href={`/crm/companies/${c.id}`} className="text-xs font-medium text-muted hover:underline">Open</Link>
-                      {editable && (
-                        <form action={toggleCompanyActive.bind(null, c.id)}>
-                          <button className="text-xs font-medium text-brand-600 hover:underline">
-                            {c.active ? "Deactivate" : "Activate"}
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CompaniesTable rows={tableRows} users={users} editable={editable} />
       )}
       <Pager total={total} page={page} pageSize={PAGE_SIZE} basePath="/crm/companies" params={{ q, type, category }} />
     </div>
