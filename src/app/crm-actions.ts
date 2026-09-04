@@ -169,6 +169,31 @@ export async function deleteCompany(id: string) {
   redirect("/crm/companies");
 }
 
+// Bulk-delete from the Companies list. Same cascade semantics as
+// deleteCompany — contacts / deals are unlinked (schema onDelete: SetNull),
+// activities and documents cascade. Returns the number actually deleted so the
+// UI can show a single aggregated toast.
+export async function bulkDeleteCompanies(ids: string[]) {
+  const user = await requireCrmEditor();
+  const unique = Array.from(new Set(ids.filter((x) => typeof x === "string" && x.length > 0)));
+  if (unique.length === 0) return { ok: true as const, deleted: 0 };
+
+  const found = await prisma.company.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, name: true },
+  });
+  if (found.length === 0) return { ok: true as const, deleted: 0 };
+
+  const foundIds = found.map((c) => c.id);
+  await prisma.company.deleteMany({ where: { id: { in: foundIds } } });
+  for (const c of found) {
+    await audit(user.id, "DELETE", "Company", c.id, c.name);
+    await logActivity({ actorId: user.id, action: "DELETED", entityType: "COMPANY", entityId: c.id, summary: `Deleted company ${c.name}` });
+  }
+  revalidatePath("/crm/companies");
+  return { ok: true as const, deleted: found.length };
+}
+
 // ===========================================================================
 // Contacts
 // ===========================================================================
