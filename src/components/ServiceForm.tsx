@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import { saveService } from "@/app/actions";
+import { CurrencyTriple } from "@/components/CurrencyTriple";
 import {
   VENDOR_TYPES,
   VENDOR_TYPE_LABELS,
@@ -25,6 +29,12 @@ type ServiceData = {
 const money = (n: number) => (n ? (n / 100).toString() : "");
 
 export function ServiceForm({ service, backHref = "/services" }: { service?: ServiceData; backHref?: string }) {
+  const [defaults, setDefaults] = useState({
+    inr: money(service?.defaultInrPaise ?? 0),
+    usd: money(service?.defaultUsdCents ?? 0),
+    eur: money(service?.defaultEurCents ?? 0),
+  });
+
   return (
     <form action={saveService} className="card space-y-5 p-6">
       {service && <input type="hidden" name="id" value={service.id} />}
@@ -66,20 +76,12 @@ export function ServiceForm({ service, backHref = "/services" }: { service?: Ser
 
       <div>
         <p className="label">Default amounts (used to pre-fill each new month)</p>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="label text-xs">INR</label>
-            <input className="input" name="defaultInr" type="number" step="0.01" min="0" defaultValue={money(service?.defaultInrPaise ?? 0)} />
-          </div>
-          <div>
-            <label className="label text-xs">USD</label>
-            <input className="input" name="defaultUsd" type="number" step="0.01" min="0" defaultValue={money(service?.defaultUsdCents ?? 0)} />
-          </div>
-          <div>
-            <label className="label text-xs">EUR</label>
-            <input className="input" name="defaultEur" type="number" step="0.01" min="0" defaultValue={money(service?.defaultEurCents ?? 0)} />
-          </div>
-        </div>
+        <CurrencyTriple
+          names={{ inr: "defaultInr", usd: "defaultUsd", eur: "defaultEur" }}
+          values={defaults}
+          onChange={setDefaults}
+          labels={{ inr: "INR", usd: "USD", eur: "EUR" }}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
