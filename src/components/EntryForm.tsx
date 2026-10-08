@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveEntry } from "@/app/actions";
+import { CurrencyTriple } from "@/components/CurrencyTriple";
 import {
   VENDOR_TYPES,
   VENDOR_TYPE_LABELS,
@@ -155,17 +156,12 @@ export function EntryForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">
-        <div>
-          <label className="label">Amount (INR)</label>
-          <input className="input" name="amountInr" type="number" step="0.01" min="0" value={inrStr} onChange={(e) => setInrStr(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Amount (USD)</label>
-          <input className="input" name="amountUsd" type="number" step="0.01" min="0" value={usdStr} onChange={(e) => setUsdStr(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Amount (EUR)</label>
-          <input className="input" name="amountEur" type="number" step="0.01" min="0" value={eurStr} onChange={(e) => setEurStr(e.target.value)} />
+        <div className="sm:col-span-3">
+          <CurrencyTriple
+            names={{ inr: "amountInr", usd: "amountUsd", eur: "amountEur" }}
+            values={{ inr: inrStr, usd: usdStr, eur: eurStr }}
+            onChange={(n) => { setInrStr(n.inr); setUsdStr(n.usd); setEurStr(n.eur); }}
+          />
         </div>
         <div>
           <label className="label">This month paid (INR)</label>
